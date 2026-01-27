@@ -1,0 +1,5 @@
+{
+  "name": "Char-Tracker",
+  "description": "A comprehensive dark-mode character sheet editor for complex text-based RPGs, featuring dual edit/preview modes and complex state management.",
+  "requestFramePermissions": []
+}

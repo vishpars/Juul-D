@@ -1,0 +1,245 @@
+
+import React, { useState } from 'react';
+import { CharacterData, TimeUnit } from '../types';
+import { Card, StyledInput, StyledTextarea, Button, BonusInput, TagInput, TimeInput, TabRadarCharts, CommonTagToggles } from './Shared';
+import { Plus, Trash2, Clock, Hourglass, ChevronDown, ChevronRight, Eye, EyeOff, Hash, Check, X } from 'lucide-react';
+import { DisplayMode } from '../App';
+/* [DIALECT] */ import { useDialect } from '../dialect_module/DialectContext';
+
+interface Props {
+  character: CharacterData;
+  isEditMode: boolean;
+  displayMode: DisplayMode;
+  onChange: (groups: CharacterData['ability_groups']) => void;
+  timeUnits: TimeUnit[];
+}
+
+const TabAbilities: React.FC<Props> = ({ character, isEditMode, displayMode, onChange, timeUnits }) => {
+  const { ability_groups } = character;
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<number, boolean>>({});
+  const [deleteConfirmGroupIdx, setDeleteConfirmGroupIdx] = useState<number | null>(null);
+  /* [DIALECT] */ const { t } = useDialect();
+
+  const toggleGroup = (idx: number) => {
+    setCollapsedGroups(prev => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
+  const updateGroup = (idx: number, field: string, val: any) => {
+    const next = [...ability_groups];
+    next[idx] = { ...next[idx], [field]: val };
+    onChange(next);
+  };
+
+  const addGroup = () => onChange([...ability_groups, { name: "Новая Школа", tags: [], abilities: [], is_hidden: false }]);
+  
+  const removeGroup = (idx: number) => {
+     const next = ability_groups.filter((_, i) => i !== idx);
+     onChange(next);
+     
+     // Clean up collapsed state & delete state
+     const newCollapsed = { ...collapsedGroups };
+     delete newCollapsed[idx];
+     setCollapsedGroups(newCollapsed);
+     setDeleteConfirmGroupIdx(null);
+  };
+
+  const addAbility = (gIdx: number) => {
+    const next = [...ability_groups];
+    // Deep clone the group to avoid mutation
+    const group = { ...next[gIdx] };
+    group.abilities = [...(group.abilities || [])];
+    
+    group.abilities.push({ 
+      name: "Новый Навык", bonuses: [], tags: [], desc_lore: "", desc_mech: "",
+      cd: 0, cd_unit: "", dur: 0, dur_unit: "", limit: 0, limit_unit: ""
+    });
+    
+    next[gIdx] = group;
+    onChange(next);
+  };
+
+  const updateAbility = (gIdx: number, aIdx: number, field: string, val: any) => {
+    const next = [...ability_groups];
+    // Deep clone logic
+    const group = { ...next[gIdx] };
+    group.abilities = [...group.abilities];
+    group.abilities[aIdx] = { ...group.abilities[aIdx], [field]: val };
+    next[gIdx] = group;
+    onChange(next);
+  };
+
+  const removeAbility = (gIdx: number, aIdx: number) => {
+    const next = [...ability_groups];
+    const group = { ...next[gIdx] };
+    group.abilities = [...group.abilities];
+    group.abilities.splice(aIdx, 1);
+    next[gIdx] = group;
+    onChange(next);
+  };
+
+  const shouldShowLore = displayMode === 'lore';
+  const shouldShowMech = displayMode === 'mech';
+
+  // Normalize data for chart (include hidden groups in stats calculation)
+  const chartGroups = ability_groups.map(g => ({
+    name: g.name,
+    items: g.abilities
+  }));
+
+  return (
+    <div className="space-y-8 animate-fade-in">
+      
+      {/* Charts Visualization - Explicit Cyan Color */}
+      <TabRadarCharts groups={chartGroups} color="#06b6d4" />
+
+      {ability_groups.map((group, gIdx) => {
+        // Hide if not in edit mode AND either empty or explicitly hidden
+        if (!isEditMode && (group.abilities.length === 0 || group.is_hidden)) return null;
+        
+        const isCollapsed = collapsedGroups[gIdx];
+        const isHidden = group.is_hidden;
+
+        return (
+          // Use Index as key to prevent re-mounting on name change
+          <div key={gIdx} className={`space-y-4 transition-all ${isHidden && isEditMode ? 'opacity-70 border-2 border-dashed border-gray-800 p-4 rounded-xl bg-gray-900/20' : ''}`}>
+             {/* Header */}
+             <div className="flex items-center gap-4 border-b border-gray-800 pb-2 bg-slate-900/90 p-3 rounded-t-lg backdrop-blur-sm shadow-md">
+               <button onClick={() => toggleGroup(gIdx)} className="text-gray-500 hover:text-cyan-400 transition-colors p-1">
+                  {isCollapsed ? <ChevronRight size={24}/> : <ChevronDown size={24} />}
+               </button>
+               <div className="flex-1">
+                 <StyledInput 
+                   isEditMode={isEditMode} 
+                   value={group.name} 
+                   onChange={e => updateGroup(gIdx, 'name', e.target.value)} 
+                   className="text-xl font-bold text-cyan-500 uppercase tracking-widest bg-transparent border-none p-0" 
+                 />
+                 {/* [DIALECT] */}
+                 {isHidden && isEditMode && <span className="text-[10px] uppercase font-bold text-gray-500 block -mt-1">{t('lbl_hidden_group', "Скрытая группа")}</span>}
+               </div>
+               
+               {!isCollapsed && <TagInput isEditMode={isEditMode} tags={group.tags || []} onChange={t => updateGroup(gIdx, 'tags', t)} />}
+               
+               {isEditMode && (
+                 <>
+                   <button 
+                     onClick={() => updateGroup(gIdx, 'is_hidden', !isHidden)} 
+                     className={`p-1.5 rounded transition-colors ${isHidden ? 'bg-gray-800 text-gray-400 hover:text-white' : 'text-cyan-600 hover:text-cyan-400'}`}
+                     title={isHidden ? "Показать в листе" : "Скрыть из листа"}
+                   >
+                     {isHidden ? <EyeOff size={16}/> : <Eye size={16}/>}
+                   </button>
+                   
+                   {/* Delete Confirm Logic */}
+                   {deleteConfirmGroupIdx === gIdx ? (
+                     <div className="flex items-center gap-1">
+                        <Button size="sm" variant="danger" onClick={() => removeGroup(gIdx)}><Check size={14} /></Button>
+                        <Button size="sm" variant="secondary" onClick={() => setDeleteConfirmGroupIdx(null)}><X size={14} /></Button>
+                     </div>
+                   ) : (
+                     <Button size="sm" variant="danger" onClick={() => setDeleteConfirmGroupIdx(gIdx)}><Trash2 size={14} /></Button>
+                   )}
+                 </>
+               )}
+             </div>
+
+             {/* Content */}
+             {!isCollapsed && (
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
+                 {group.abilities.map((ability, aIdx) => (
+                   <Card key={aIdx} className="hover:border-gray-700 transition-colors bg-[#0b0d10] border-gray-800">
+                      <div className="flex justify-between items-start mb-2 overflow-hidden">
+                         <div className="flex-1 min-w-0 mr-2" title={ability.name}>
+                           <StyledInput 
+                              isEditMode={isEditMode} 
+                              value={ability.name} 
+                              onChange={e => updateAbility(gIdx, aIdx, 'name', e.target.value)} 
+                              className="font-bold text-lg truncate block w-full" 
+                              // [DIALECT]
+                              placeholder={t('ph_ability_name', "Название навыка")}
+                           />
+                         </div>
+                         {isEditMode && <button onClick={() => removeAbility(gIdx, aIdx)} className="text-red-900 hover:text-red-500 transition-colors flex-shrink-0"><Trash2 size={14}/></button>}
+                      </div>
+                      
+                      {/* Mech Details (Hidden in Lore Mode unless Editing) */}
+                      {(shouldShowMech || isEditMode) && (
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          <BonusInput isEditMode={isEditMode} bonuses={ability.bonuses} onChange={b => updateAbility(gIdx, aIdx, 'bonuses', b)} />
+                          <TimeInput 
+                            icon={Clock} label="КД" isEditMode={isEditMode} 
+                            val={ability.cd} unit={ability.cd_unit} 
+                            onChangeVal={v => updateAbility(gIdx, aIdx, 'cd', v)} 
+                            onChangeUnit={u => updateAbility(gIdx, aIdx, 'cd_unit', u)} 
+                            options={timeUnits}
+                          />
+                          <TimeInput 
+                            icon={Hourglass} label="Длит." isEditMode={isEditMode} 
+                            val={ability.dur} unit={ability.dur_unit} 
+                            onChangeVal={v => updateAbility(gIdx, aIdx, 'dur', v)} 
+                            onChangeUnit={u => updateAbility(gIdx, aIdx, 'dur_unit', u)} 
+                            options={timeUnits}
+                          />
+                          {/* Limit input */}
+                          <TimeInput 
+                            icon={Hash} label="Лимит" isEditMode={isEditMode} 
+                            val={ability.limit || 0} unit={ability.limit_unit || ""} 
+                            onChangeVal={v => updateAbility(gIdx, aIdx, 'limit', v)} 
+                            onChangeUnit={u => updateAbility(gIdx, aIdx, 'limit_unit', u)} 
+                            options={timeUnits}
+                          />
+                        </div>
+                      )}
+
+                      <div className="mb-3">
+                         <TagInput isEditMode={isEditMode} tags={ability.tags || []} onChange={t => updateAbility(gIdx, aIdx, 'tags', t)} />
+                         {isEditMode && <CommonTagToggles tags={ability.tags || []} onChange={t => updateAbility(gIdx, aIdx, 'tags', t)} />}
+                      </div>
+
+                      {/* Lore Text */}
+                      {(shouldShowLore || isEditMode) && (
+                        <StyledTextarea 
+                          isEditMode={isEditMode} 
+                          value={ability.desc_lore} 
+                          onChange={e => updateAbility(gIdx, aIdx, 'desc_lore', e.target.value)} 
+                          className="text-sm text-gray-400 italic mb-2" 
+                          // [DIALECT]
+                          placeholder={t('ph_ability_lore', "Худ. описание")}
+                        />
+                      )}
+
+                      {/* Mech Text - Green Highlight */}
+                      {(shouldShowMech || isEditMode) && (isEditMode || ability.desc_mech) && (
+                        <div className={`pt-2 ${!isEditMode && shouldShowLore ? 'border-t border-gray-800' : ''}`}>
+                          <StyledTextarea 
+                            isEditMode={isEditMode} 
+                            value={ability.desc_mech} 
+                            onChange={e => updateAbility(gIdx, aIdx, 'desc_mech', e.target.value)} 
+                            className={`text-xs font-mono leading-relaxed ${isEditMode ? 'text-green-400' : 'text-green-500/80'}`} 
+                            // [DIALECT]
+                            placeholder={t('ph_ability_mech', "Механика")} 
+                          />
+                        </div>
+                      )}
+                   </Card>
+                 ))}
+                 {isEditMode && (
+                   <button onClick={() => addAbility(gIdx)} className="border-2 border-dashed border-gray-800 rounded-lg flex items-center justify-center text-gray-700 hover:text-cyan-500 hover:border-cyan-900 transition-all min-h-[150px] bg-slate-900/50 backdrop-blur-sm">
+                     <Plus size={24} />
+                   </button>
+                 )}
+               </div>
+             )}
+          </div>
+        );
+      })}
+
+      {/* [DIALECT] */}
+      {isEditMode && <Button onClick={addGroup} className="w-full py-4 border-dashed border-2 bg-slate-900/50 backdrop-blur-sm border-gray-800 text-gray-600 hover:text-white hover:border-gray-600">
+         {t('btn_add_school', "Создать новую школу")}
+      </Button>}
+    </div>
+  );
+};
+
+export default TabAbilities;

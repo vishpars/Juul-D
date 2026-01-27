@@ -1,0 +1,87 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpolygon points='50 5 95 27.5 95 72.5 50 95 5 72.5 5 27.5' fill='%23dc2626'/%3E%3Ctext x='50' y='45' font-family='Arial, sans-serif' font-weight='900' font-size='42' fill='white' text-anchor='middle' letter-spacing='-2'%3EB%3C/text%3E%3Ctext x='50' y='78' font-family='Arial, sans-serif' font-weight='900' font-size='42' fill='white' text-anchor='middle' letter-spacing='-2'%3EC%3C/text%3E%3C/svg%3E" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Battle Sequence Calculator</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              rune: ['Cinzel', 'serif'],
+              sans: ['Inter', 'sans-serif'],
+            },
+            colors: {
+              slate: {
+                950: '#020617', // Base Deep Background
+              },
+              panel: '#050b14', // Card/Panel Background
+              input: '#020408', // Input Background
+              console: {
+                900: '#050b14', // Mapping old console colors to new palette
+                800: '#0f172a',
+                700: '#1e293b',
+                600: '#334155',
+                500: '#64748b',
+              }
+            },
+            boxShadow: {
+              'glow': '0 0 15px rgba(139, 92, 246, 0.3)', // Violet Glow
+              'glow-red': '0 0 15px rgba(220, 38, 38, 0.3)', // Red Glow
+              'glow-gold': '0 0 15px rgba(251, 191, 36, 0.3)', // Gold Glow
+            },
+            animation: {
+              'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            }
+          }
+        }
+      }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "@dnd-kit/core": "https://esm.sh/@dnd-kit/core",
+    "@dnd-kit/sortable": "https://esm.sh/@dnd-kit/sortable",
+    "@dnd-kit/utilities": "https://esm.sh/@dnd-kit/utilities",
+    "lucide-react": "https://esm.sh/lucide-react",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.91.0"
+  }
+}
+</script>
+<style>
+  /* Custom Scrollbar for Sci-Fi look */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #020617; 
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #4c1d95; 
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #8b5cf6; 
+  }
+</style>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-slate-950 text-slate-300 antialiased selection:bg-violet-900 selection:text-white">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

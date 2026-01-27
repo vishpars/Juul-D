@@ -1,0 +1,5 @@
+{
+  "name": "Battle Sequence Calculator",
+  "description": "A Director's Console for RPG battle management, featuring complex move sequence calculation, time-state tracking, and specific log formatting.",
+  "requestFramePermissions": []
+}
