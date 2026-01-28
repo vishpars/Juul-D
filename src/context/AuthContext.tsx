@@ -1,6 +1,8 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
+import bridge from '@vkontakte/vk-bridge';
 
 interface AuthContextType {
   user: User | null;
@@ -8,10 +10,11 @@ interface AuthContextType {
   isLoading: boolean;
   isAdmin: boolean;
   signIn: (email?: string, password?: string) => Promise<void>;
+  signInWithProvider: (provider: 'google') => Promise<void>;
+  signInWithVK: () => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>; 
   signInAsGuest: () => Promise<void>;
   signOut: () => Promise<void>;
-  triggerAdminSequence: () => void;
-  checkAdminCode: (code: string) => boolean; 
   logoutAdmin: () => void; 
 }
 
@@ -20,14 +23,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children?: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null); 
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Default to true to wait for session check
   
-  // Secret Sequence State
-  const [isListeningForCode, setIsListeningForCode] = useState(false);
-  const [inputBuffer, setInputBuffer] = useState("");
-
-  const SECRET_PASS = "admin123";
-
   // Check admin role from DB
   const checkProfileRole = async (userId: string) => {
     try {
@@ -38,17 +35,15 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
         .single();
       
       if (error) {
-        console.warn("[Auth] Failed to fetch profile role. This might be due to missing public.profiles table or RLS policy.", error.message);
+        console.warn("[Auth] Failed to fetch profile role.", error.message);
         setIsAdmin(false);
         return;
       }
       
       if (data && data.role === 'admin') {
         setIsAdmin(true);
-        console.log("[Auth] Admin privileges confirmed via profile.");
       } else {
         setIsAdmin(false);
-        console.log(`[Auth] User role is '${data?.role || 'unknown'}'. Admin access denied.`);
       }
     } catch (e) {
       console.error("[Auth] Unexpected error checking profile role:", e);
@@ -56,35 +51,67 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
     }
   };
 
-  const triggerAdminSequence = () => {
-    if (isAdmin) return;
-    console.log("[System] Identity verification sequence initiated...");
-    setIsListeningForCode(true);
-    setInputBuffer("");
-    
-    setTimeout(() => {
-      setIsListeningForCode(false);
-      setInputBuffer("");
-    }, 5000);
-  };
-
+  // --- Session Initialization Effect ---
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isListeningForCode) return;
-
-      const newBuffer = inputBuffer + e.key;
-      setInputBuffer(newBuffer);
-
-      if (newBuffer.includes(SECRET_PASS)) {
-        setIsAdmin(true);
-        setIsListeningForCode(false);
-        console.log("[System] Admin Access Granted via Override.");
-      }
+    const initializeAuth = async () => {
+        try {
+            // 1. Check active Supabase session
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            if (session?.user) {
+                const realUser: User = {
+                    id: session.user.id,
+                    email: session.user.email || '',
+                    role: 'user'
+                };
+                setUser(realUser);
+                checkProfileRole(session.user.id);
+            } else {
+                // 2. Check for persisted Guest session
+                const isGuest = localStorage.getItem('juul_d_is_guest');
+                if (isGuest === 'true') {
+                    setUser({
+                        id: 'guest',
+                        email: 'guest@void.net',
+                        role: 'guest'
+                    });
+                }
+            }
+        } catch (error) {
+            console.error("Auth initialization error:", error);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isListeningForCode, inputBuffer]);
+    initializeAuth();
+
+    // 3. Subscribe to Auth Changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_OUT') {
+            setUser(null);
+            setIsAdmin(false);
+            localStorage.removeItem('juul_d_is_guest');
+        } else if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+             const realUser: User = {
+                id: session.user.id,
+                email: session.user.email || '',
+                role: 'user'
+            };
+            // Only update if different to prevent loops, though React handles this
+            setUser(realUser);
+            localStorage.removeItem('juul_d_is_guest');
+            
+            if (event === 'SIGNED_IN') {
+                checkProfileRole(session.user.id);
+            }
+        }
+    });
+
+    return () => {
+        subscription.unsubscribe();
+    };
+  }, []);
 
   const signIn = async (email?: string, password?: string) => {
     setIsLoading(true);
@@ -94,32 +121,22 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
             const { data, error } = await supabase.auth.signInWithPassword({ email, password });
             
             if (error) {
-                // If Auth fails (e.g. wrong password), log specific error
                 console.error("Supabase Auth Error:", error.message);
-                console.warn("Falling back to demo user due to auth failure. Check console for details.");
-                
-                // Fallback to Demo User (as requested in original code flow, but now with clearer error log)
-                const demoUser = {
-                    id: '12345',
-                    email: email,
-                    role: 'user' as const
+                throw error;
+            }
+            
+            // Explicitly set user immediately to prevent race conditions with navigation
+            if (data.session?.user) {
+                const realUser: User = {
+                    id: data.session.user.id,
+                    email: data.session.user.email || '',
+                    role: 'user'
                 };
-                setUser(demoUser);
-                setIsAdmin(false); 
-            } else if (data.user) {
-                // Real User Login Successful
-                const realUser = {
-                    id: data.user.id,
-                    email: data.user.email || '',
-                    role: 'user' as const
-                };
-                // Set User state first
                 setUser(realUser);
-                // Then await the role check to ensure UI updates correctly
-                await checkProfileRole(data.user.id);
+                await checkProfileRole(data.session.user.id);
             }
         } else {
-            // Legacy / Default mock (No credentials provided)
+            // Legacy / Default mock
             setUser({
                 id: '12345',
                 email: 'traveller@vk.com',
@@ -127,39 +144,142 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
             });
         }
     } catch (e) {
-        console.error("Unexpected Sign-In Error:", e);
+        console.error("Sign-In Error:", e);
+        throw e; // Rethrow so AuthPage can display error
     } finally {
         setIsLoading(false);
+    }
+  };
+
+  const signInWithProvider = async (provider: 'google') => {
+      setIsLoading(true);
+      try {
+          // Construct redirect URL to return to the app root (handling subpaths like /Juul-D/)
+          let baseUrl = '/';
+          try {
+              // @ts-ignore
+              if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) {
+                  // @ts-ignore
+                  baseUrl = import.meta.env.BASE_URL;
+              }
+          } catch (e) {
+              // Ignore env read errors in sandboxes
+          }
+          
+          const redirectUrl = window.location.origin + baseUrl;
+          
+          const { data, error } = await supabase.auth.signInWithOAuth({
+              provider: provider,
+              options: {
+                  redirectTo: redirectUrl
+              }
+          });
+          if (error) throw error;
+      } catch (e) {
+          console.error(`OAuth ${provider} Error:`, e);
+          throw e;
+      } finally {
+          // Note: setIsLoading(false) is not called here because OAuth redirects away.
+          // It will reset when the page reloads on callback.
+      }
+  };
+
+  // Custom VK Handler for Mini Apps
+  const signInWithVK = async () => {
+      setIsLoading(true);
+      try {
+          // 1. Get VK User Data
+          const vkUser = await bridge.send('VKWebAppGetUserInfo');
+          if (!vkUser || !vkUser.id) throw new Error("Не удалось получить данные ВК");
+
+          // 2. Generate Synthetic Credentials
+          // NOTE: This isn't production-secure for high-stakes apps, but standard for 
+          // client-side hobby apps without a backend proxy.
+          const fakeEmail = `id${vkUser.id}@vk.juul-d.local`;
+          const fakePassword = `vk_secret_${vkUser.id}_secure_salt_v1`;
+
+          // 3. Try to Sign In
+          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+              email: fakeEmail,
+              password: fakePassword
+          });
+
+          // 4. If Sign In fails (User doesn't exist), Sign Up
+          if (signInError) {
+              const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+                  email: fakeEmail,
+                  password: fakePassword,
+              });
+
+              if (signUpError) throw signUpError;
+
+              // 5. Update Profile with VK Name/Avatar (Wait for session trigger or force update)
+              if (signUpData.user) {
+                  // Small delay to ensure triggers ran if any, then upsert
+                  await new Promise(r => setTimeout(r, 500));
+                  await supabase.from('profiles').upsert({
+                      id: signUpData.user.id,
+                      full_name: `${vkUser.first_name} ${vkUser.last_name}`,
+                      avatar_url: vkUser.photo_200 || vkUser.photo_100,
+                      updated_at: new Date()
+                  });
+              }
+          }
+      } catch (e: any) {
+          console.error("VK Auth Error:", e);
+          throw e;
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
+  const signUp = async (email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.error("Supabase Registration Error:", error.message);
+        throw error;
+      }
+      
+      if (!data.session && data.user) {
+          console.log("Registration successful, verify email.");
+      }
+    } catch (e) {
+      console.error("Registration Exception:", e);
+      throw e;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const signInAsGuest = async () => {
       setIsLoading(true);
       await new Promise(resolve => setTimeout(resolve, 800)); // Fake loading
+      
+      localStorage.setItem('juul_d_is_guest', 'true');
+      
       setUser({
           id: 'guest',
           email: 'guest@void.net',
           role: 'guest'
       });
-      setIsAdmin(false); // Guests are never admins
+      setIsAdmin(false); 
       setIsLoading(false);
   };
 
   const signOut = async () => {
     setIsLoading(true);
     setIsAdmin(false);
+    localStorage.removeItem('juul_d_is_guest');
+    
     await supabase.auth.signOut();
-    await new Promise(resolve => setTimeout(resolve, 500));
     setUser(null);
     setIsLoading(false);
-  };
-
-  const checkAdminCode = (code: string) => {
-    if (code === SECRET_PASS) {
-      setIsAdmin(true);
-      return true;
-    }
-    return false;
   };
 
   const logoutAdmin = () => {
@@ -171,12 +291,13 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
       user, 
       isAuthenticated: !!user, 
       isLoading, 
-      isAdmin,
+      isAdmin, 
       signIn, 
+      signInWithProvider,
+      signInWithVK,
+      signUp,
       signInAsGuest,
       signOut,
-      triggerAdminSequence,
-      checkAdminCode,
       logoutAdmin
     }}>
       {children}

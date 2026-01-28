@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { X, Sparkles } from 'lucide-react';
 
@@ -27,7 +28,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
   const clipPathValue = size === 'full' ? 'none' : 'polygon(0 0, 100% 0, 100% calc(100% - 24px), calc(100% - 24px) 100%, 24px 100%, 0 calc(100% - 24px))';
 
   return (
-    <div className={`fixed inset-0 ${zIndex} flex items-center justify-center bg-black/95 backdrop-blur-sm p-0 md:p-4 animate-fadeIn`}>
+    <div className={`fixed left-0 right-0 bottom-0 top-12 md:top-0 ${zIndex} flex items-center justify-center bg-black/95 backdrop-blur-sm p-0 md:p-4 animate-fadeIn`}>
       <div 
         className={`
             relative flex flex-col 

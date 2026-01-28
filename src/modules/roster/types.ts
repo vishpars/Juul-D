@@ -129,6 +129,11 @@ export interface TimeUnit {
   battle: boolean;
 }
 
+export interface BattleTag {
+  tag: string;
+  description: string;
+}
+
 export interface TrainingRecord {
   char_id: string;
   limits: string; // Format "3/4/2/2/2"

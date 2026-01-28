@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Sword, Library, ArrowRight, Activity, ShieldCheck, Sparkles, AlertTriangle, Ghost } from 'lucide-react';
+import { Users, Sword, Library, ArrowRight, Activity, ShieldCheck, Sparkles, AlertTriangle, Ghost, User as UserIcon } from 'lucide-react';
 import { ModuleCardProps } from '../types';
 import { useAuth } from '../context/AuthContext';
 
@@ -132,34 +132,77 @@ export const Dashboard: React.FC = () => {
       }
   };
 
+  // Determine Badge Style
+  const getBadgeConfig = () => {
+      if (isAdmin) {
+          // Special Roles based on UUID
+          if (user?.id === 'f804c30c-19e8-466b-8a97-e9baa3d273ca') {
+              return {
+                  style: 'bg-red-900/20 border-red-500/50 text-red-300',
+                  label: 'Жестокий ДМ',
+                  icon: ShieldCheck
+              };
+          }
+          if (user?.id === 'ad8ec6ec-1a91-4b5f-beaf-30bbf790b675') {
+              return {
+                  style: 'bg-emerald-900/20 border-emerald-500/50 text-emerald-300',
+                  label: 'УГМ',
+                  icon: ShieldCheck
+              };
+          }
+
+          // Default Admin
+          return {
+              style: 'bg-emerald-900/20 border-emerald-500/50 text-emerald-300',
+              label: 'Администратор',
+              icon: ShieldCheck
+          };
+      }
+      if (user?.role === 'user') {
+          return {
+              style: 'bg-blue-900/20 border-blue-500/50 text-blue-300',
+              label: 'Путник',
+              icon: UserIcon
+          };
+      }
+      return {
+          style: 'bg-slate-900/20 border-slate-500/50 text-slate-300',
+          label: 'Гостевой Доступ',
+          icon: Users
+      };
+  };
+
+  const badge = getBadgeConfig();
+  const BadgeIcon = badge.icon;
+
   return (
-    <div className="min-h-screen relative p-6 md:p-12 overflow-hidden flex flex-col justify-center">
+    <div className="min-h-screen relative p-4 min-[1150px]:p-12 overflow-y-auto min-[1150px]:overflow-hidden flex flex-col justify-center">
       
       {/* Background Ambience Layer applied in Layout, here we add layout specific glow */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-violet-600/10 blur-[100px] rounded-full pointer-events-none"></div>
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-600/10 blur-[100px] rounded-full pointer-events-none"></div>
 
-      <div className="max-w-6xl mx-auto w-full relative z-10 space-y-12">
+      <div className="max-w-6xl mx-auto w-full relative z-10 space-y-8 min-[1150px]:space-y-12 pb-20 min-[1150px]:pb-0">
         
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-end gap-6 border-b border-white/10 pb-6">
-            <div>
+        <div className="flex flex-col min-[1150px]:flex-row justify-between items-start min-[1150px]:items-end gap-6 border-b border-white/10 pb-6">
+            <div className="w-full min-[1150px]:w-auto">
                 <div className={`flex items-center gap-2 mb-2 animate-fadeIn ${getSplashColor(dailySplash.type)}`}>
                     {getSplashIcon(dailySplash.type)}
                     <span className="text-xs font-mono uppercase tracking-widest">{dailySplash.text}</span>
                 </div>
-                <h1 className="text-4xl md:text-6xl font-fantasy font-bold text-white tracking-widest leading-none drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">
+                <h1 className="text-4xl min-[1150px]:text-6xl font-fantasy font-bold text-white tracking-widest leading-none drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">
                     <span className="text-violet-400">РАСПУТЬЕ</span>
                 </h1>
-                <p className="text-slate-400 mt-4 max-w-xl font-sans text-sm md:text-base leading-relaxed">
+                <p className="text-slate-400 mt-4 max-w-xl font-sans text-sm min-[1150px]:text-base leading-relaxed">
                     Центральный терминал управления миром. Доступ к реестру сущностей, симуляции конфликтов и архивам знаний.
                 </p>
             </div>
 
-            <div className="flex flex-col items-end gap-2 text-right">
-                <div className={`px-4 py-1.5 rounded-full border flex items-center gap-2 backdrop-blur-md ${isAdmin ? 'bg-emerald-900/20 border-emerald-500/50 text-emerald-300' : 'bg-slate-900/20 border-slate-500/50 text-slate-300'}`}>
-                    {isAdmin ? <ShieldCheck size={14} /> : <Users size={14} />}
-                    <span className="text-xs font-bold uppercase tracking-wider">{isAdmin ? 'Администратор' : 'Гостевой Доступ'}</span>
+            <div className="flex flex-col items-start min-[1150px]:items-end gap-2 text-left min-[1150px]:text-right w-full min-[1150px]:w-auto">
+                <div className={`px-4 py-1.5 rounded-full border flex items-center gap-2 backdrop-blur-md ${badge.style}`}>
+                    <BadgeIcon size={14} />
+                    <span className="text-xs font-bold uppercase tracking-wider">{badge.label}</span>
                 </div>
                 {/* ID Only visible for Admin */}
                 {isAdmin && (
@@ -171,7 +214,7 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Modules Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 min-[1150px]:grid-cols-3 gap-6">
             <ModuleCard 
               title="ЛЕТОПИСЬ ДУШ"
               description="Реестр персонажей, бестиарий, управление характеристиками и инвентарем."
@@ -196,7 +239,7 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Footer Decor */}
-        <div className="flex justify-center items-center gap-4 opacity-30 pt-12">
+        <div className="flex justify-center items-center gap-4 opacity-30 pt-4 min-[1150px]:pt-12">
             <div className="h-px w-24 bg-gradient-to-r from-transparent via-white to-transparent"></div>
             <Sparkles size={16} className="text-white animate-pulse" />
             <div className="h-px w-24 bg-gradient-to-r from-transparent via-white to-transparent"></div>

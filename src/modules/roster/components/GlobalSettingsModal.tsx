@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { InjuryDefinition, TimeUnit, Ability } from '../types';
 import { Button, Card, StyledInput, StyledTextarea, BonusInput, TagInput, TimeInput, CommonTagToggles } from './Shared';
-import { Settings, X, Save, Trash2, Plus, Clock, Zap, Skull, Swords, Sparkles, Hourglass, Hash } from 'lucide-react';
+import { Settings, X, Save, Trash2, Plus, Clock, Zap, Skull, Swords, Sparkles, Hourglass, Hash, Database, Download, FileText, Eraser, Upload, RefreshCw } from 'lucide-react';
 import { useUI } from '../context/UIContext';
-import { getBasicActions, saveBasicActions } from '../utils/supabaseService';
+import { getBasicActions, saveBasicActions, exportFullBackup, importFullBackup, cleanUnusedStorage } from '../utils/supabaseService';
 
 interface Props {
   onClose: () => void;
@@ -26,7 +26,7 @@ const GlobalSettingsModal: React.FC<Props> = ({
   timeUnits, onSaveTimeUnits
 }) => {
   const { showAlert, showConfirm } = useUI();
-  const [activeTab, setActiveTab] = useState<'triggers' | 'injuries' | 'time' | 'basic'>('triggers');
+  const [activeTab, setActiveTab] = useState<'triggers' | 'injuries' | 'time' | 'basic' | 'system'>('triggers');
 
   // --- Triggers State ---
   const [editingTriggers, setEditingTriggers] = useState<Record<string, string>>({ ...triggersMap });
@@ -48,6 +48,11 @@ const GlobalSettingsModal: React.FC<Props> = ({
   // --- Basic Actions State ---
   const [basicActions, setBasicActions] = useState<Ability[]>([]);
   const [loadingActions, setLoadingActions] = useState(false);
+
+  // --- System State ---
+  const [cleanupStatus, setCleanupStatus] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
       if (activeTab === 'basic') {
@@ -165,6 +170,67 @@ const GlobalSettingsModal: React.FC<Props> = ({
       showAlert("Базовые действия сохранены.", "Сохранено");
   };
 
+  // --- Handlers: System ---
+  const handleFullBackup = async () => {
+      try {
+          await exportFullBackup();
+          showAlert("Архив успешно создан и скачан.", "Бэкап");
+      } catch (e: any) {
+          showAlert("Ошибка создания бэкапа: " + e.message, "Ошибка");
+      }
+  };
+
+  const handleImportClick = () => {
+      fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      setIsImporting(true);
+      const res = await importFullBackup(file);
+      setIsImporting(false);
+      
+      if (res.success) {
+          showAlert(res.message, "Восстановление");
+          if(fileInputRef.current) fileInputRef.current.value = "";
+      } else {
+          showAlert("Ошибка: " + res.message, "Сбой");
+      }
+  };
+
+  const handleStorageCleanup = async () => {
+      setCleanupStatus("Сканирование...");
+      try {
+          const count = await cleanUnusedStorage();
+          setCleanupStatus(`Удалено файлов: ${count}`);
+          showAlert(`Очистка завершена. Удалено ${count} неиспользуемых файлов.`, "Очистка");
+      } catch (e: any) {
+          setCleanupStatus("Ошибка");
+          showAlert("Ошибка очистки: " + e.message, "Ошибка");
+      }
+  };
+
+  const copyGinSql = () => {
+      const sql = `
+-- Enable Trigram Extension
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+-- Index for Characters (JSONB Search)
+CREATE INDEX IF NOT EXISTS idx_characters_data_gin ON characters USING gin (data);
+
+-- Index for Lore Search (Name & Content)
+CREATE INDEX IF NOT EXISTS idx_lore_articles_search ON lore_articles USING gin (name gin_trgm_ops, content gin_trgm_ops);
+
+-- Index for Quests Search
+CREATE INDEX IF NOT EXISTS idx_quests_title_search ON quests USING gin (title gin_trgm_ops, description gin_trgm_ops);
+      `.trim();
+      
+      navigator.clipboard.writeText(sql);
+      showAlert("SQL скопирован в буфер обмена. Выполните его в SQL Editor вашей Supabase панели.", "SQL");
+  };
+
   // Styles helpers for Injuries
   const getInjuryStyles = (type: number) => {
     switch (type) {
@@ -196,7 +262,8 @@ const GlobalSettingsModal: React.FC<Props> = ({
               { id: 'triggers', label: 'Триггеры', icon: Zap, color: 'text-cyan-400' },
               { id: 'injuries', label: 'Травмы', icon: Skull, color: 'text-red-400' },
               { id: 'time', label: 'Ед. Времени', icon: Clock, color: 'text-amber-400' },
-              { id: 'basic', label: 'Баз. Действия', icon: Swords, color: 'text-emerald-400' }
+              { id: 'basic', label: 'Баз. Действия', icon: Swords, color: 'text-emerald-400' },
+              { id: 'system', label: 'Система', icon: Database, color: 'text-slate-200' }
             ].map((tab) => (
               <button 
                 key={tab.id}
@@ -460,33 +527,117 @@ const GlobalSettingsModal: React.FC<Props> = ({
                      )}
                  </div>
              )}
+
+             {/* --- SYSTEM TAB --- */}
+             {activeTab === 'system' && (
+                 <div className="max-w-4xl mx-auto space-y-8">
+                     
+                     {/* Backup / Restore */}
+                     <div className="bg-[#13151c] border border-violet-500/20 rounded-lg p-6">
+                         <div className="flex items-center gap-3 mb-4 text-violet-300">
+                             <Database size={24} />
+                             <h3 className="text-lg font-fantasy uppercase tracking-wider">Полный Бэкап</h3>
+                         </div>
+                         <p className="text-slate-400 text-sm mb-4">
+                             Скачивание дампа всех таблиц или восстановление из JSON.
+                             Рекомендуется делать еженедельно.
+                         </p>
+                         <div className="flex gap-4">
+                             <button 
+                                onClick={handleFullBackup}
+                                className="flex items-center gap-2 px-6 py-3 bg-violet-700 hover:bg-violet-600 text-white font-bold uppercase rounded transition-all shadow-[0_0_15px_rgba(139,92,246,0.3)]"
+                             >
+                                 <Download size={18} /> Экспорт
+                             </button>
+                             
+                             <button 
+                                onClick={handleImportClick}
+                                disabled={isImporting}
+                                className="flex items-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 font-bold uppercase rounded transition-all"
+                             >
+                                 {isImporting ? <RefreshCw className="animate-spin" size={18} /> : <Upload size={18} />}
+                                 Импорт
+                             </button>
+                             <input 
+                                type="file" 
+                                ref={fileInputRef} 
+                                onChange={handleFileChange} 
+                                accept="application/json" 
+                                className="hidden" 
+                             />
+                         </div>
+                     </div>
+
+                     {/* Storage Clean */}
+                     <div className="bg-[#13151c] border border-violet-500/20 rounded-lg p-6">
+                         <div className="flex items-center gap-3 mb-4 text-orange-300">
+                             <Eraser size={24} />
+                             <h3 className="text-lg font-fantasy uppercase tracking-wider">Очистка Хранилища</h3>
+                         </div>
+                         <p className="text-slate-400 text-sm mb-4">
+                             Сканирует базу данных и удаляет из Storage все файлы изображений, на которые нет ссылок в персонажах, картах или локациях.
+                             <br/><span className="text-red-400 font-bold">Внимание: Действие необратимо.</span>
+                         </p>
+                         <div className="flex items-center gap-4">
+                             <button 
+                                onClick={handleStorageCleanup}
+                                className="flex items-center gap-2 px-6 py-3 bg-orange-900/40 hover:bg-orange-800/60 text-orange-200 border border-orange-700 font-bold uppercase rounded transition-all"
+                             >
+                                 <Eraser size={18} /> Очистить мусор
+                             </button>
+                             {cleanupStatus && <span className="text-sm font-mono text-slate-300">{cleanupStatus}</span>}
+                         </div>
+                     </div>
+
+                     {/* GIN Indexes */}
+                     <div className="bg-[#13151c] border border-violet-500/20 rounded-lg p-6">
+                         <div className="flex items-center gap-3 mb-4 text-emerald-300">
+                             <FileText size={24} />
+                             <h3 className="text-lg font-fantasy uppercase tracking-wider">Оптимизация БД (GIN)</h3>
+                         </div>
+                         <p className="text-slate-400 text-sm mb-4">
+                             Для быстрого поиска по JSON полям и тексту нужны GIN индексы.
+                             Нажмите кнопку ниже, чтобы скопировать SQL-команду, и выполните её в Supabase SQL Editor.
+                         </p>
+                         <button 
+                            onClick={copyGinSql}
+                            className="flex items-center gap-2 px-6 py-3 bg-emerald-900/40 hover:bg-emerald-800/60 text-emerald-200 border border-emerald-700 font-bold uppercase rounded transition-all"
+                         >
+                             <FileText size={18} /> Скопировать SQL
+                         </button>
+                     </div>
+
+                 </div>
+             )}
           </div>
 
-          {/* Footer Actions */}
-          <div className="relative z-10 p-5 border-t border-violet-500/20 bg-[#0b0d12]/90 backdrop-blur">
-             <div className="flex gap-4">
-               {activeTab === 'triggers' && (
-                 <button onClick={saveTriggers} className="flex-1 py-3 bg-cyan-900/20 border border-cyan-500/50 text-cyan-300 font-serif uppercase tracking-widest text-sm hover:bg-cyan-900/40 hover:shadow-[0_0_15px_rgba(34,211,238,0.2)] transition-all">
-                    Сохранить Триггеры
-                 </button>
-               )}
-               {activeTab === 'injuries' && (
-                 <button onClick={saveInjuriesHandler} className="flex-1 py-3 bg-red-900/20 border border-red-500/50 text-red-300 font-serif uppercase tracking-widest text-sm hover:bg-red-900/40 hover:shadow-[0_0_15px_rgba(248,113,113,0.2)] transition-all">
-                    Обновить Протоколы Травм
-                 </button>
-               )}
-               {activeTab === 'time' && (
-                 <button onClick={saveTimeUnitsHandler} className="flex-1 py-3 bg-amber-900/20 border border-amber-500/50 text-amber-300 font-serif uppercase tracking-widest text-sm hover:bg-amber-900/40 hover:shadow-[0_0_15px_rgba(251,191,36,0.2)] transition-all">
-                    Синхронизировать Время
-                 </button>
-               )}
-               {activeTab === 'basic' && (
-                 <button onClick={saveBasicActionsHandler} className="flex-1 py-3 bg-emerald-900/20 border border-emerald-500/50 text-emerald-300 font-serif uppercase tracking-widest text-sm hover:bg-emerald-900/40 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)] transition-all">
-                    Кодифицировать Действия
-                 </button>
-               )}
-             </div>
-          </div>
+          {/* Footer Actions (Conditional) */}
+          {activeTab !== 'system' && (
+            <div className="relative z-10 p-5 border-t border-violet-500/20 bg-[#0b0d12]/90 backdrop-blur">
+                <div className="flex gap-4">
+                {activeTab === 'triggers' && (
+                    <button onClick={saveTriggers} className="flex-1 py-3 bg-cyan-900/20 border border-cyan-500/50 text-cyan-300 font-serif uppercase tracking-widest text-sm hover:bg-cyan-900/40 hover:shadow-[0_0_15px_rgba(34,211,238,0.2)] transition-all">
+                        Сохранить Триггеры
+                    </button>
+                )}
+                {activeTab === 'injuries' && (
+                    <button onClick={saveInjuriesHandler} className="flex-1 py-3 bg-red-900/20 border border-red-500/50 text-red-300 font-serif uppercase tracking-widest text-sm hover:bg-red-900/40 hover:shadow-[0_0_15px_rgba(248,113,113,0.2)] transition-all">
+                        Обновить Протоколы Травм
+                    </button>
+                )}
+                {activeTab === 'time' && (
+                    <button onClick={saveTimeUnitsHandler} className="flex-1 py-3 bg-amber-900/20 border border-amber-500/50 text-amber-300 font-serif uppercase tracking-widest text-sm hover:bg-amber-900/40 hover:shadow-[0_0_15px_rgba(251,191,36,0.2)] transition-all">
+                        Синхронизировать Время
+                    </button>
+                )}
+                {activeTab === 'basic' && (
+                    <button onClick={saveBasicActionsHandler} className="flex-1 py-3 bg-emerald-900/20 border border-emerald-500/50 text-emerald-300 font-serif uppercase tracking-widest text-sm hover:bg-emerald-900/40 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)] transition-all">
+                        Кодифицировать Действия
+                    </button>
+                )}
+                </div>
+            </div>
+          )}
 
        </div>
     </div>

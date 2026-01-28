@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useQuests } from '../hooks/useQuests';
 import { useCharacters } from '../hooks/useCharacters';
@@ -172,7 +173,8 @@ const QuestCard = React.memo(({ quest, onUpdateStatus, onOpenAcceptModal, isAdmi
                 {/* Header Section */}
                 <div className="p-4 relative">
                      <div className="flex justify-between items-start gap-3">
-                         <div className="flex-1">
+                         {/* Title Container - Added min-w-0 for flex wrapping */}
+                         <div className="flex-1 min-w-0">
                              {/* Quest Type Indicator */}
                              <div className="flex items-center gap-2 mb-1">
                                  <div className={`w-1.5 h-1.5 rounded-full ${style.accent} shadow-[0_0_5px_currentColor]`}></div>
@@ -180,11 +182,12 @@ const QuestCard = React.memo(({ quest, onUpdateStatus, onOpenAcceptModal, isAdmi
                                      {TYPE_LABELS[quest.type]}
                                  </span>
                              </div>
-                             <h4 className={`font-fantasy font-bold text-lg leading-tight ${style.title}`}>{quest.title}</h4>
+                             {/* Added break-words to fix overflow on long words */}
+                             <h4 className={`font-fantasy font-bold text-lg leading-tight ${style.title} break-words`}>{quest.title}</h4>
                          </div>
                          
                          {/* Status / Pins */}
-                         <div className="flex -space-x-2">
+                         <div className="flex -space-x-2 shrink-0">
                              {isTaken ? (
                                  quest.details.acceptedBy.map((name, idx) => {
                                      const char = allCharacters.find(c => c.name === name);
@@ -231,12 +234,12 @@ const QuestCard = React.memo(({ quest, onUpdateStatus, onOpenAcceptModal, isAdmi
                     <div className="p-4 pt-0">
                         <div className={`h-px w-full bg-gradient-to-r from-transparent via-current to-transparent opacity-20 my-3 ${style.text}`} />
                         
-                        <p className={`text-sm leading-relaxed whitespace-pre-wrap font-sans ${style.text}`}>{quest.description}</p>
+                        <p className={`text-sm leading-relaxed whitespace-pre-wrap font-sans ${style.text} break-words`}>{quest.description}</p>
                         
                         <div className="mt-4 space-y-3">
                             <div className="flex items-center gap-2">
-                                <span className="text-[10px] uppercase tracking-widest text-slate-500">Награда</span>
-                                <span className={`text-xs font-bold ${style.title}`}>{quest.reward}</span>
+                                <span className="text-[10px] uppercase tracking-widest text-slate-500 shrink-0">Награда</span>
+                                <span className={`text-xs font-bold ${style.title} break-words`}>{quest.reward}</span>
                             </div>
 
                             {/* Accepted By List with Colors */}
@@ -249,11 +252,11 @@ const QuestCard = React.memo(({ quest, onUpdateStatus, onOpenAcceptModal, isAdmi
                                              const avatar = char?.data?.identity?.avatar_url || char?.data?.avatar_url;
 
                                              return (
-                                                 <div key={idx} className="flex items-center gap-1.5 bg-black/20 px-2 py-1 rounded border border-white/5">
-                                                     <div className={`w-3 h-3 rounded-full ${getPinColor(name, idx)} shadow-[0_0_5px_currentColor] overflow-hidden bg-black`}>
+                                                 <div key={idx} className="flex items-center gap-1.5 bg-black/20 px-2 py-1 rounded border border-white/5 max-w-full">
+                                                     <div className={`w-3 h-3 rounded-full ${getPinColor(name, idx)} shadow-[0_0_5px_currentColor] overflow-hidden bg-black shrink-0`}>
                                                         {avatar && <img src={avatar} alt={name} className="w-full h-full object-cover" />}
                                                      </div>
-                                                     <span className={`text-xs font-medium ${style.text}`}>{name}</span>
+                                                     <span className={`text-xs font-medium ${style.text} truncate`}>{name}</span>
                                                  </div>
                                              );
                                          })}
@@ -262,16 +265,16 @@ const QuestCard = React.memo(({ quest, onUpdateStatus, onOpenAcceptModal, isAdmi
                             )}
                             
                             <div className="flex justify-between items-end pt-2">
-                                <div className="flex flex-col">
+                                <div className="flex flex-col min-w-0">
                                     <span className="text-[10px] uppercase tracking-widest text-slate-500">Заказчик</span>
-                                    <span className={`text-xs italic ${style.text}`}>{quest.details.givenBy}</span>
+                                    <span className={`text-xs italic ${style.text} truncate`}>{quest.details.givenBy}</span>
                                 </div>
                                 
                                 <div className="flex gap-2" onClick={e => e.stopPropagation()}>
                                     {quest.status === QuestStatus.AVAILABLE && (
                                         <button 
                                             onClick={(e) => { e.stopPropagation(); onOpenAcceptModal(quest.id); }}
-                                            className="bg-violet-600/80 hover:bg-violet-500 text-white px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider shadow-[0_0_10px_rgba(139,92,246,0.4)] hover:shadow-[0_0_15px_rgba(139,92,246,0.6)] transition-all border border-violet-400/30 backdrop-blur-sm"
+                                            className="bg-violet-600/80 hover:bg-violet-500 text-white px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider shadow-[0_0_10px_rgba(139,92,246,0.4)] hover:shadow-[0_0_15px_rgba(139,92,246,0.6)] transition-all border border-violet-400/30 backdrop-blur-sm whitespace-nowrap"
                                         >
                                             Принять Судьбу
                                         </button>
@@ -279,7 +282,7 @@ const QuestCard = React.memo(({ quest, onUpdateStatus, onOpenAcceptModal, isAdmi
                                     {quest.status === QuestStatus.IN_PROGRESS && (
                                         <button 
                                             onClick={handleClaim}
-                                            className="bg-emerald-600/80 hover:bg-emerald-500 text-white px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider shadow-[0_0_10px_rgba(16,185,129,0.4)] transition-all border border-emerald-400/30 backdrop-blur-sm flex items-center gap-1"
+                                            className="bg-emerald-600/80 hover:bg-emerald-500 text-white px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider shadow-[0_0_10px_rgba(16,185,129,0.4)] transition-all border border-emerald-400/30 backdrop-blur-sm flex items-center gap-1 whitespace-nowrap"
                                         >
                                             <CheckCircle size={12} /> Завершить
                                         </button>
@@ -465,14 +468,14 @@ const QuestBoardPage: React.FC<QuestBoardPageProps> = ({ isAdmin }) => {
                 </h2>
                 
                 {/* Divider & Context */}
-                <div className="hidden md:block h-5 w-px bg-white/10"></div>
-                <div className="hidden md:flex items-center text-xs text-slate-400 font-fantasy tracking-wide">
+                <div className="hidden min-[1150px]:block h-5 w-px bg-white/10"></div>
+                <div className="hidden min-[1150px]:flex items-center text-xs text-slate-400 font-fantasy tracking-wide">
                     <span>Активные Контракты</span>
                 </div>
             </div>
 
-            {/* Mobile Dots (Inline with header on small screens if space permits, but mostly hidden/separate) */}
-            <div className="flex md:hidden gap-1.5 mx-auto">
+            {/* Mobile Dots (Using arbitrary value 1150px to switch to desktop view) */}
+            <div className="flex min-[1150px]:hidden gap-1.5 mx-auto">
                {columns.map((_, idx) => (
                    <div key={idx} className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${idx === activeColIndex ? 'bg-violet-400 scale-125 shadow-[0_0_8px_rgba(167,139,250,0.8)]' : 'bg-slate-700'}`} />
                ))}
@@ -502,12 +505,12 @@ const QuestBoardPage: React.FC<QuestBoardPageProps> = ({ isAdmin }) => {
             
             <div className="flex-1 flex w-full relative z-10 h-full">
                 {columns.map((col, index) => (
-                    <div key={col.type} className={`flex-1 h-full flex-col border-r border-slate-700/30 ${col.bg} transition-opacity duration-300 ${index === activeColIndex ? 'flex' : 'hidden md:flex'}`}>
+                    <div key={col.type} className={`flex-1 h-full flex-col border-r border-slate-700/30 ${col.bg} transition-opacity duration-300 ${index === activeColIndex ? 'flex' : 'hidden min-[1150px]:flex'}`}>
                         {/* Column Header */}
                         <div className="p-4 border-b border-white/5 flex items-center justify-center relative">
-                            <button onClick={() => setActiveColIndex(Math.max(0, index - 1))} className={`md:hidden absolute left-2 text-slate-500 ${index === 0 ? 'opacity-0 pointer-events-none' : ''}`}><ChevronLeft /></button>
+                            <button onClick={() => setActiveColIndex(Math.max(0, index - 1))} className={`min-[1150px]:hidden absolute left-2 text-slate-500 ${index === 0 ? 'opacity-0 pointer-events-none' : ''}`}><ChevronLeft /></button>
                             <h3 className={`text-center font-fantasy ${col.color} text-lg uppercase tracking-[0.2em] drop-shadow-[0_0_8px_currentColor]`}>{col.title}</h3>
-                            <button onClick={() => setActiveColIndex(Math.min(2, index + 1))} className={`md:hidden absolute right-2 text-slate-500 ${index === 2 ? 'opacity-0 pointer-events-none' : ''}`}><ChevronRight /></button>
+                            <button onClick={() => setActiveColIndex(Math.min(2, index + 1))} className={`min-[1150px]:hidden absolute right-2 text-slate-500 ${index === 2 ? 'opacity-0 pointer-events-none' : ''}`}><ChevronRight /></button>
                             
                             {/* Magic Glow Line */}
                             <div className={`absolute bottom-0 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-current to-transparent opacity-50 ${col.color}`}></div>

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -32,17 +33,33 @@
         background: #020408; 
       }
       ::-webkit-scrollbar-thumb {
-        background: #2e1065; 
+        background: #4c1d95; /* violet-900 */
         border: 1px solid #5b21b6;
-        border-radius: 99px;
+        border-radius: 3px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #5b21b6;
+        background: #5b21b6; /* violet-800 */
         border-color: #8b5cf6;
         box-shadow: 0 0 8px rgba(139, 92, 246, 0.5);
       }
       ::-webkit-scrollbar-corner {
         background: #020408;
+      }
+      
+      /* Explicit utility class for React usage */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #020617; 
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #4c1d95; 
+        border-radius: 3px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #8b5cf6; 
       }
     </style>
   <script type="importmap">

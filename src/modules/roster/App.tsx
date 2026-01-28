@@ -12,8 +12,9 @@ import TabDebuffs from './components/TabDebuffs';
 import TabUnits from './components/TabUnits';
 import TabMedCard from './components/TabMedCard';
 import GlobalSettingsModal from './components/GlobalSettingsModal';
+import { TagHintsModal } from './components/TagHintsModal';
 import { Button } from './components/Shared';
-import { Save, ChevronLeft, ChevronRight, Edit3, Trash2, RotateCcw, Settings, BookOpen, Calculator, ScrollText, Loader2 } from 'lucide-react';
+import { Save, ChevronLeft, ChevronRight, Edit3, Trash2, RotateCcw, Settings, BookOpen, Calculator, ScrollText, Loader2, Tag } from 'lucide-react';
 import { DialectProvider, useDialect } from './dialect_module/DialectContext';
 import { UIProvider, useUI } from './context/UIContext';
 import { TrainingPage } from './pages/TrainingPage';
@@ -49,6 +50,7 @@ const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
   
   // Admin UI State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isTagHintsOpen, setIsTagHintsOpen] = useState(false);
 
   const SHEET_TABS = useMemo(() => [
     { id: 'equipment', label: t('tab_eq', 'Снаряжение') },
@@ -278,7 +280,7 @@ const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
         <div className="relative z-10 max-w-5xl mx-auto p-4 md:p-6 animate-fade-in pb-32">
           
           {/* Top Navigation Bar */}
-          <div className="flex items-center justify-between mb-6 bg-[#020617]/80 backdrop-blur-md p-3 border-b border-violet-900/30 sticky top-0 z-50 shadow-lg rune-clip-r">
+          <div className="flex items-center justify-between mb-6 bg-[#020617]/80 backdrop-blur-md p-3 border-b border-violet-900/30 sticky top-12 min-[1150px]:top-0 z-50 shadow-lg rune-clip-r">
             <div className="flex items-center gap-2">
                <Button 
                   variant="secondary" 
@@ -329,6 +331,18 @@ const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
                {isAdmin && (
                  <>
                    <div className="h-6 w-px bg-slate-800 mx-1"></div>
+                   
+                   {/* Tag Hints Toggle - Only visible in Edit Mode or if Admin wants to check */}
+                   {isEditMode && (
+                        <button 
+                            onClick={() => setIsTagHintsOpen(true)}
+                            className="p-2 bg-violet-900/20 hover:bg-violet-900/40 text-violet-300 border border-violet-500/30 rounded transition-colors"
+                            title="Справочник Тегов"
+                        >
+                            <Tag size={16} />
+                        </button>
+                   )}
+
                    {isEditMode ? (
                      <>
                         <Button variant="danger" size="sm" onClick={() => handleDelete(activeChar.id)} title="Delete">
@@ -340,12 +354,12 @@ const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
                            <RotateCcw size={16} />
                         </Button>
                         <Button className="bg-emerald-900/80 hover:bg-emerald-800 border-emerald-500/50" size="sm" onClick={handleSave}>
-                          <Save size={16} /> {t('act_save', "Save")}
+                          <Save size={16} /> {t('act_save', "Сохранить")}
                         </Button>
                      </>
                    ) : (
                      <Button variant="secondary" size="sm" onClick={() => setIsEditMode(true)}>
-                       <Edit3 size={16} /> {t('act_edit', "Edit")}
+                       <Edit3 size={16} /> {t('act_edit', "Ред.")}
                      </Button>
                    )}
                  </>
@@ -366,7 +380,7 @@ const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
           />
 
           {/* Navigation Tabs - Desktop - UPDATED BG */}
-          <div className="hidden md:flex sticky top-14 z-40 bg-[#020617]/95 backdrop-blur-md border-b border-violet-900/30 mb-6 px-0 md:px-0">
+          <div className="hidden md:flex sticky top-28 min-[1150px]:top-14 z-40 bg-[#020617]/95 backdrop-blur-md border-b border-violet-900/30 mb-6 px-0 md:px-0">
              <div className="flex overflow-x-auto no-scrollbar gap-1 pb-1">
                 {SHEET_TABS.map(tab => (
                   <button
@@ -388,7 +402,7 @@ const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
           </div>
 
           {/* Navigation Tabs - Mobile (Arrow Swapper) */}
-          <div className="md:hidden sticky top-14 z-40 bg-[#020617]/95 backdrop-blur-md border-b border-violet-900/30 mb-6 -mx-4 px-4 py-2 flex items-center justify-between">
+          <div className="md:hidden sticky top-28 min-[1150px]:top-14 z-40 bg-[#020617]/95 backdrop-blur-md border-b border-violet-900/30 mb-6 -mx-4 px-4 py-2 flex items-center justify-between">
               <button onClick={handlePrevTab} className="p-2 text-slate-500 hover:text-white transition-colors">
                   <ChevronLeft size={24} />
               </button>
@@ -460,6 +474,15 @@ const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
           </div>
 
         </div>
+      )}
+
+      {/* Tag Hints Modal */}
+      {isTagHintsOpen && (
+          <TagHintsModal 
+              isOpen={isTagHintsOpen}
+              onClose={() => setIsTagHintsOpen(false)}
+              isAdmin={isAdmin}
+          />
       )}
     </div>
   );

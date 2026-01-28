@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { useLocations } from '../hooks/useLocations';
 import { useMaps } from '../hooks/useMaps';
@@ -113,9 +114,9 @@ export interface LocationReaderProps {
 
 export const LocationReader = ({ location, parentName, subLocations, onClose, onOpenSubLocation, onOpenMap }: LocationReaderProps) => {
     return (
-        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center animate-fadeIn p-0 md:p-6 backdrop-blur-xl" onClick={onClose}>
+        <div className="fixed left-0 right-0 bottom-0 top-12 md:top-0 z-50 bg-black/95 flex items-center justify-center animate-fadeIn p-0 min-[1150px]:p-6 backdrop-blur-xl" onClick={onClose}>
             <div 
-                className="relative w-full h-full md:max-w-6xl md:h-[85vh] bg-slate-950 border border-violet-900/30 rounded-none md:rounded-2xl shadow-2xl flex flex-col landscape:flex-row md:flex-row overflow-hidden"
+                className="relative w-full h-full min-[1150px]:max-w-6xl min-[1150px]:h-[85vh] bg-slate-950 border border-violet-900/30 rounded-none min-[1150px]:rounded-2xl shadow-2xl flex flex-col min-[1150px]:flex-row overflow-hidden"
                 onClick={e => e.stopPropagation()}
             >
                  <button 
@@ -125,25 +126,25 @@ export const LocationReader = ({ location, parentName, subLocations, onClose, on
                     <X size={24} />
                 </button>
 
-                {/* Left: Art (Top on Mobile Portrait, Left on Landscape/Desktop) */}
-                <div className="w-full landscape:w-1/2 md:w-3/5 h-1/3 landscape:h-full md:h-full relative shrink-0 bg-black">
+                {/* Left: Art (Top on Mobile Portrait, Left on Desktop) */}
+                <div className="w-full min-[1150px]:w-3/5 h-1/3 min-[1150px]:h-full relative shrink-0 bg-black">
                     <img 
                         src={location.img} 
                         alt={location.name} 
                         className="w-full h-full object-cover opacity-90"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t landscape:bg-gradient-to-r md:bg-gradient-to-r from-slate-950 via-transparent to-transparent"></div>
+                    <div className="absolute inset-0 bg-gradient-to-t min-[1150px]:bg-gradient-to-r from-slate-950 via-transparent to-transparent"></div>
                     
                     {/* Region Tag Floating */}
                     {parentName && (
-                         <div className="absolute top-4 left-4 landscape:bottom-8 landscape:top-auto landscape:left-8 md:bottom-8 md:top-auto md:left-8 px-3 py-1 bg-black/60 backdrop-blur-md border border-violet-500/30 rounded text-violet-300 text-xs uppercase tracking-widest font-bold">
+                         <div className="absolute top-4 left-4 min-[1150px]:bottom-8 min-[1150px]:top-auto min-[1150px]:left-8 px-3 py-1 bg-black/60 backdrop-blur-md border border-violet-500/30 rounded text-violet-300 text-xs uppercase tracking-widest font-bold">
                              {parentName}
                          </div>
                     )}
 
                     {/* Open Associated Map Button */}
                     {location.associated_map_id && (
-                        <div className="absolute bottom-4 left-4 right-4 landscape:bottom-8 landscape:left-auto landscape:right-8 md:bottom-8 md:left-auto md:right-8 flex justify-center">
+                        <div className="absolute bottom-4 left-4 right-4 min-[1150px]:bottom-8 min-[1150px]:left-auto min-[1150px]:right-8 flex justify-center">
                             <button 
                                 onClick={() => onOpenMap(location.associated_map_id!)}
                                 className="bg-slate-900/80 hover:bg-violet-600/90 text-white px-6 py-3 rounded-lg flex items-center gap-3 backdrop-blur-md border border-violet-500/50 shadow-[0_0_20px_rgba(139,92,246,0.3)] transition-all font-fantasy tracking-wider uppercase group"
@@ -155,20 +156,20 @@ export const LocationReader = ({ location, parentName, subLocations, onClose, on
                     )}
                 </div>
 
-                {/* Right: Content (Bottom on Mobile Portrait, Right on Landscape/Desktop) */}
-                <div className="w-full landscape:w-1/2 md:w-2/5 flex-1 p-6 md:p-10 overflow-y-auto custom-scrollbar bg-slate-950 relative">
+                {/* Right: Content (Bottom on Mobile Portrait, Right on Desktop) */}
+                <div className="w-full min-[1150px]:w-2/5 flex-1 p-6 md:p-10 overflow-y-auto custom-scrollbar bg-slate-950 relative">
                      {/* Decorative Elements */}
                      <div className="absolute top-0 right-0 p-10 opacity-10 pointer-events-none">
                          <MapPin size={120} />
                      </div>
 
-                     <h1 className="text-4xl md:text-5xl font-fantasy text-transparent bg-clip-text bg-gradient-to-r from-white to-violet-400 mb-6 drop-shadow-lg leading-tight">
+                     <h1 className="text-4xl md:text-5xl font-fantasy text-transparent bg-clip-text bg-gradient-to-r from-white to-violet-400 mb-6 drop-shadow-lg leading-tight break-words">
                         {location.name}
                      </h1>
                      
                      <div className="h-1 w-24 bg-violet-600 mb-8 shadow-[0_0_15px_rgba(139,92,246,0.6)]"></div>
 
-                     <div className="prose prose-invert prose-violet max-w-none text-lg text-slate-300 leading-loose font-serif whitespace-pre-wrap mb-8">
+                     <div className="prose prose-invert prose-violet max-w-none text-lg text-slate-300 leading-loose font-serif whitespace-pre-wrap mb-8 break-words">
                          {location.description}
                      </div>
 

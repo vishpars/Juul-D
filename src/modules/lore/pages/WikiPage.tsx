@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useWiki } from '../hooks/useWiki';
 import { useLoreCategories } from '../hooks/useLoreCategories';
@@ -271,13 +272,15 @@ const WikiPage: React.FC<WikiPageProps> = ({ isAdmin }) => {
   const handleSelectArticle = (id: string) => {
       setSelectedArticleId(id);
       setIsEditing(false);
-      // On mobile we might want to close sidebar, but keeping it simple for now or relying on user toggle
-      if (window.innerWidth < 768) setIsSidebarOpen(false);
+      // Mobile handling: close sidebar
+      if (window.innerWidth < 1150) setIsSidebarOpen(false);
   };
 
   const handleSelectCategory = (id: string | null) => {
       setSelectedCategoryId(id);
       setSelectedArticleId(null);
+      // Mobile handling: close sidebar if selecting
+      if (window.innerWidth < 1150 && id !== null) setIsSidebarOpen(false);
   };
 
   const handleEditStart = () => {
@@ -408,7 +411,7 @@ const WikiPage: React.FC<WikiPageProps> = ({ isAdmin }) => {
       {/* Sidebar - Drawer Style like Library */}
       <div 
         className={`
-            absolute inset-y-0 left-0 z-30 w-full md:w-64 bg-slate-950/90 md:bg-slate-950/40 backdrop-blur-xl border-r border-violet-500/20 shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col
+            absolute inset-y-0 left-0 z-30 w-full min-[1150px]:w-64 bg-slate-950/90 min-[1150px]:bg-slate-950/40 backdrop-blur-xl border-r border-violet-500/20 shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col
             ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
@@ -435,7 +438,7 @@ const WikiPage: React.FC<WikiPageProps> = ({ isAdmin }) => {
         
         <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar" onMouseLeave={() => setTooltip(null)}>
             <button 
-                onClick={() => { handleSelectCategory(null); if(window.innerWidth < 768) setIsSidebarOpen(false); }}
+                onClick={() => { handleSelectCategory(null); if(window.innerWidth < 1150) setIsSidebarOpen(false); }}
                 className={`w-full text-left px-2 py-2 rounded text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-2 transition-colors ${selectedCategoryId === null ? 'bg-white/5 text-white border border-white/10' : 'text-slate-500 hover:text-slate-300'}`}
             >
                 <Search size={12} /> Главный Архив
@@ -448,7 +451,7 @@ const WikiPage: React.FC<WikiPageProps> = ({ isAdmin }) => {
                     selectedCategoryId={selectedCategoryId}
                     expandedIds={expandedIds}
                     onToggleExpand={toggleExpand}
-                    onSelectCategory={(id) => { handleSelectCategory(id); if(window.innerWidth < 768) setIsSidebarOpen(false); }}
+                    onSelectCategory={(id) => { handleSelectCategory(id); }}
                     articles={articles}
                     onSelectArticle={handleSelectArticle}
                     selectedArticleId={selectedArticleId}
@@ -462,7 +465,7 @@ const WikiPage: React.FC<WikiPageProps> = ({ isAdmin }) => {
       </div>
 
       {/* Main Content Area */}
-      <div className={`flex-1 flex flex-col transition-all duration-300 ${isSidebarOpen ? 'ml-0 md:ml-64' : 'ml-0'} h-full overflow-hidden bg-black/20 relative`}>
+      <div className={`flex-1 flex flex-col transition-all duration-300 ${isSidebarOpen ? 'ml-0 min-[1150px]:ml-64' : 'ml-0'} h-full overflow-hidden bg-black/20 relative`}>
          
          {/* Unified Header */}
          <div className="bg-slate-900/90 backdrop-blur-md border-b border-violet-500/20 p-3 sticky top-0 z-20 flex flex-wrap gap-3 justify-between items-center shadow-lg shrink-0 min-h-[3.5rem]">
@@ -475,7 +478,7 @@ const WikiPage: React.FC<WikiPageProps> = ({ isAdmin }) => {
                 </h2>
 
                  {/* Divider & Context */}
-                 <div className="hidden md:block h-5 w-px bg-white/10"></div>
+                 <div className="hidden min-[1150px]:block h-5 w-px bg-white/10"></div>
                  
                  {/* Breadcrumbs */}
                  <div className="flex items-center text-xs font-fantasy whitespace-nowrap overflow-x-auto custom-scrollbar pb-1 mask-linear-fade">
@@ -510,7 +513,7 @@ const WikiPage: React.FC<WikiPageProps> = ({ isAdmin }) => {
 
          {/* Content Body */}
          {selectedArticle ? (
-             <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-12 relative z-10">
+             <div className="flex-1 overflow-y-auto custom-scrollbar p-6 min-[1150px]:p-12 relative z-10">
                  {isAdmin && (
                      <div className="absolute top-4 right-6 flex gap-2 z-20">
                          {!isEditing ? (
@@ -541,22 +544,22 @@ const WikiPage: React.FC<WikiPageProps> = ({ isAdmin }) => {
                          />
                      </div>
                  ) : (
-                    <article className="prose prose-invert prose-violet max-w-none mx-auto pb-20">
+                    <article className="prose prose-invert prose-violet max-w-none mx-auto pb-20 break-words">
                         <div className="flex items-center gap-3 mb-8 opacity-50">
                             <Scroll size={24} className="text-violet-400" />
                             <div className="h-px bg-gradient-to-r from-violet-500 to-transparent flex-1"></div>
                         </div>
-                        <h1 className="font-fantasy text-4xl md:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-violet-200 to-white pb-2 drop-shadow-[0_0_10px_rgba(139,92,246,0.3)] inline-block leading-tight">
+                        <h1 className="font-fantasy text-3xl md:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-violet-200 to-white pb-2 drop-shadow-[0_0_10px_rgba(139,92,246,0.3)] inline-block leading-tight break-words">
                             {selectedArticle.name}
                         </h1>
-                        <div className="text-slate-200/90 leading-loose whitespace-pre-wrap font-serif text-lg tracking-wide mt-8">
+                        <div className="text-slate-200/90 leading-loose whitespace-pre-wrap font-serif text-lg tracking-wide mt-8 break-words">
                             {selectedArticle.content}
                         </div>
                     </article>
                  )}
              </div>
          ) : (
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-12 relative z-10">
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 min-[1150px]:p-12 relative z-10">
                  <h2 className="text-3xl font-fantasy text-violet-200 mb-6 border-b border-violet-500/30 pb-2 flex items-center gap-3">
                     {selectedCategoryId ? <FolderOpen size={24} className="text-violet-500" /> : <Library size={24} className="text-violet-500" />}
                     {selectedCategoryId ? categories.find(c => c.id === selectedCategoryId)?.name : "Главный Архив"}
@@ -568,7 +571,7 @@ const WikiPage: React.FC<WikiPageProps> = ({ isAdmin }) => {
                         <h4 className="text-[10px] font-bold uppercase tracking-widest text-violet-300/70 mb-2 border-b border-violet-500/20 pb-1">
                             {selectedCategoryId ? "Подглавы" : "Архивы"}
                         </h4>
-                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                        <div className="grid grid-cols-2 min-[900px]:grid-cols-4 min-[1150px]:grid-cols-6 gap-2">
                             {visibleSubcategories.map(cat => (
                                 <div 
                                     key={cat.id} 
@@ -587,11 +590,11 @@ const WikiPage: React.FC<WikiPageProps> = ({ isAdmin }) => {
                      </div>
                  )}
                  
-                 {/* Articles */}
+                 {/* Articles Grid */}
                  {categoryArticles.length > 0 ? (
                     <>
                         <h4 className="text-[10px] font-bold uppercase tracking-widest text-violet-300/70 mb-2 border-b border-violet-500/20 pb-1">Тексты</h4>
-                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                        <div className="grid grid-cols-2 min-[900px]:grid-cols-4 min-[1150px]:grid-cols-6 gap-3">
                             {categoryArticles.map(article => (
                                 <div 
                                     key={article.id}

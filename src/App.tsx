@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Layout } from './components/layout/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { AuthPage } from './pages/AuthPage';
+import { Loader2 } from 'lucide-react';
 
 // Import Modules
 import RosterModule from './modules/roster/App';
@@ -14,6 +15,7 @@ import LoreModule from './modules/lore/App';
 
 const ProtectedRoute = () => {
   const { isAuthenticated } = useAuth();
+
   if (!isAuthenticated) {
     return <Navigate to="/auth" replace />;
   }
@@ -21,7 +23,17 @@ const ProtectedRoute = () => {
 };
 
 const AppContent = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isLoading } = useAuth();
+
+  // Prevent HashRouter from mounting while Auth is initializing.
+  // This prevents the router from consuming the OAuth token hash before Supabase processes it.
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#050b14] text-violet-500">
+        <Loader2 className="animate-spin w-10 h-10" />
+      </div>
+    );
+  }
 
   return (
     <HashRouter>

@@ -201,19 +201,19 @@ const BookReader = ({ book, onClose }: { book: LibraryItem, onClose: () => void 
   const hasProperties = book.effects || book.active || book.active_effects;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center animate-fadeIn p-0 md:p-4 backdrop-blur-md" onClick={onClose}>
+    <div className="fixed left-0 right-0 bottom-0 top-12 md:top-0 z-50 bg-black/95 flex items-center justify-center animate-fadeIn p-0 min-[1150px]:p-4 backdrop-blur-md" onClick={onClose}>
       
       {/* Spectral Tablet Container */}
       <div 
-        className="relative w-full h-full md:max-w-5xl md:h-[85vh] flex flex-col md:flex-row md:rounded-2xl overflow-hidden border-0 md:border-2 border-violet-500/30 shadow-[0_0_100px_rgba(139,92,246,0.2)] bg-slate-950/60 backdrop-blur-xl isolate"
+        className="relative w-full h-full min-[1150px]:max-w-5xl min-[1150px]:h-[85vh] flex flex-col min-[1150px]:flex-row min-[1150px]:rounded-2xl overflow-hidden border-0 min-[1150px]:border-2 border-violet-500/30 shadow-[0_0_100px_rgba(139,92,246,0.2)] bg-slate-950/60 backdrop-blur-xl isolate"
         onClick={e => e.stopPropagation()} 
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
         {/* Magic Glowing Borders (Desktop only) */}
-        <div className="hidden md:block absolute inset-0 border border-white/5 rounded-2xl pointer-events-none"></div>
-        <div className="hidden md:block absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-violet-400/50 to-transparent"></div>
-        <div className="hidden md:block absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-violet-400/50 to-transparent"></div>
+        <div className="hidden min-[1150px]:block absolute inset-0 border border-white/5 rounded-2xl pointer-events-none"></div>
+        <div className="hidden min-[1150px]:block absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-violet-400/50 to-transparent"></div>
+        <div className="hidden min-[1150px]:block absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-violet-400/50 to-transparent"></div>
         
         {/* Close Button */}
         <button 
@@ -225,7 +225,7 @@ const BookReader = ({ book, onClose }: { book: LibraryItem, onClose: () => void 
 
         {/* Swipe Hint (Mobile) */}
         {hasProperties && !showProperties && (
-            <div className="md:hidden absolute right-0 top-1/2 -translate-y-1/2 z-40 animate-pulse pointer-events-none">
+            <div className="min-[1150px]:hidden absolute right-0 top-1/2 -translate-y-1/2 z-40 animate-pulse pointer-events-none">
                  <ChevronLeft size={32} className="text-violet-500/50" />
             </div>
         )}
@@ -233,14 +233,14 @@ const BookReader = ({ book, onClose }: { book: LibraryItem, onClose: () => void 
         {/* Content - Left Pane (Lore) */}
         <div className="flex-1 p-6 md:p-12 overflow-y-auto custom-scrollbar relative border-r border-violet-500/10">
              {/* Glowing Title */}
-            <h2 className="font-fantasy text-2xl md:text-4xl text-transparent bg-clip-text bg-gradient-to-r from-violet-300 to-slate-200 drop-shadow-[0_0_5px_rgba(139,92,246,0.2)] text-center md:text-left leading-tight">
+            <h2 className="font-fantasy text-2xl md:text-4xl text-transparent bg-clip-text bg-gradient-to-r from-violet-300 to-slate-200 drop-shadow-[0_0_5px_rgba(139,92,246,0.2)] text-center md:text-left leading-tight break-words">
                 {book.title}
             </h2>
             
             {/* Separator Line */}
             <div className="h-px w-full bg-gradient-to-r from-transparent via-violet-500/50 to-transparent my-6"></div>
             
-            <div className="prose prose-invert prose-violet max-w-none text-slate-300 font-serif leading-loose text-lg whitespace-pre-wrap tracking-wide">
+            <div className="prose prose-invert prose-violet max-w-none text-slate-300 font-serif leading-loose text-lg whitespace-pre-wrap tracking-wide break-words">
                 {book.description}
             </div>
         </div>
@@ -248,15 +248,15 @@ const BookReader = ({ book, onClose }: { book: LibraryItem, onClose: () => void 
         {/* Content - Right Pane (Stats/Effects) - Sliding Drawer on Mobile */}
         {hasProperties && (
             <div className={`
-                absolute inset-y-0 right-0 w-3/4 md:static md:w-1/3 
-                bg-black/95 md:bg-black/20 
+                absolute inset-y-0 right-0 w-3/4 min-[1150px]:static min-[1150px]:w-1/3 
+                bg-black/95 min-[1150px]:bg-black/20 
                 p-8 border-l border-violet-500/10 
-                flex flex-col gap-6 backdrop-blur-xl md:backdrop-blur-sm 
+                flex flex-col gap-6 backdrop-blur-xl min-[1150px]:backdrop-blur-sm 
                 transition-transform duration-300 ease-out z-30
-                ${showProperties ? 'translate-x-0 shadow-[-20px_0_50px_rgba(0,0,0,0.8)]' : 'translate-x-full md:translate-x-0'}
+                ${showProperties ? 'translate-x-0 shadow-[-20px_0_50px_rgba(0,0,0,0.8)]' : 'translate-x-full min-[1150px]:translate-x-0'}
             `}>
                 
-                <div className="hidden md:block absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+                <div className="hidden min-[1150px]:block absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
                 <h3 className="font-fantasy text-xl text-violet-300/70 uppercase tracking-widest text-center mb-4">Свойства</h3>
 
                 {book.effects && (
@@ -265,7 +265,7 @@ const BookReader = ({ book, onClose }: { book: LibraryItem, onClose: () => void 
                         <h4 className="text-violet-400 font-bold text-xs uppercase tracking-widest mb-2 flex items-center gap-2">
                              <Sparkles size={12} /> Содержит
                         </h4>
-                        <p className="text-slate-300 font-serif italic">{book.effects}</p>
+                        <p className="text-slate-300 font-serif italic break-words">{book.effects}</p>
                     </div>
                 )}
 
@@ -275,7 +275,7 @@ const BookReader = ({ book, onClose }: { book: LibraryItem, onClose: () => void 
                         <h4 className="text-red-400 font-bold text-xs uppercase tracking-widest mb-2 flex items-center gap-2">
                              <Sparkles size={12} /> Доступно
                         </h4>
-                         <p className="text-slate-300 font-serif italic">{book.active_effects}</p>
+                         <p className="text-slate-300 font-serif italic break-words">{book.active_effects}</p>
                     </div>
                 )}
             </div>
@@ -430,7 +430,7 @@ export const LibraryPage: React.FC<LibraryPageProps> = ({ isAdmin = false }) => 
       {/* Sidebar Drawer - Glassmorphic */}
       <div 
         className={`
-          absolute inset-y-0 left-0 z-30 w-full md:w-64 bg-slate-950/90 md:bg-slate-950/40 backdrop-blur-xl border-r border-violet-500/20 shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col
+          absolute inset-y-0 left-0 z-30 w-full min-[1150px]:w-64 bg-slate-950/90 min-[1150px]:bg-slate-950/40 backdrop-blur-xl border-r border-violet-500/20 shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
@@ -469,7 +469,7 @@ export const LibraryPage: React.FC<LibraryPageProps> = ({ isAdmin = false }) => 
       </div>
 
       {/* Main Content Area - Fixed Header with Scrolling Content */}
-      <div className={`flex-1 flex flex-col transition-all duration-300 ${isSidebarOpen ? 'ml-0 md:ml-64' : 'ml-0'} h-full overflow-hidden`}>
+      <div className={`flex-1 flex flex-col transition-all duration-300 ${isSidebarOpen ? 'ml-0 min-[1150px]:ml-64' : 'ml-0'} h-full overflow-hidden`}>
         
         {/* Unified Header (Static, Non-scrolling) */}
         <div className="bg-slate-900/90 backdrop-blur-md border-b border-violet-500/20 p-3 shrink-0 z-20 flex flex-wrap gap-3 justify-between items-center shadow-lg min-h-[3.5rem]">
@@ -482,7 +482,7 @@ export const LibraryPage: React.FC<LibraryPageProps> = ({ isAdmin = false }) => 
                 </h2>
 
                  {/* Divider & Context */}
-                 <div className="hidden md:block h-5 w-px bg-white/10"></div>
+                 <div className="hidden min-[1150px]:block h-5 w-px bg-white/10"></div>
                  
                  {/* Breadcrumbs */}
                  <div className="flex items-center text-xs font-fantasy whitespace-nowrap overflow-x-auto custom-scrollbar pb-1 mask-linear-fade">
@@ -583,7 +583,7 @@ export const LibraryPage: React.FC<LibraryPageProps> = ({ isAdmin = false }) => 
                       <p className="font-fantasy text-slate-400 text-sm">Ни одна книга не привлекла ваш взор...</p>
                   </div>
                ) : (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-3 pb-8">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 min-[1150px]:grid-cols-6 gap-3 pb-8">
                     {visibleBooks.map(book => {
                         const catName = categories.find(c => c.id === book.category)?.name || "Неизвестно";
                         
@@ -646,7 +646,7 @@ export const LibraryPage: React.FC<LibraryPageProps> = ({ isAdmin = false }) => 
 
                             {/* Text Content */}
                             <div className="relative z-10 w-full transform transition-transform duration-300 group-hover:-translate-y-1">
-                                <h3 className="text-xs font-fantasy font-bold text-slate-300 group-hover:text-white transition-colors line-clamp-2 leading-tight mb-0.5 group-hover:drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]">
+                                <h3 className="text-xs font-fantasy font-bold text-slate-300 group-hover:text-white transition-colors line-clamp-2 leading-tight mb-0.5 group-hover:drop-shadow-[0_0_5px_rgba(255,255,255,0.3)] break-words">
                                     {book.title}
                                 </h3>
                                 <span className="text-[9px] text-slate-600 font-mono uppercase tracking-tight block truncate group-hover:text-violet-400/70 transition-colors">

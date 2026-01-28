@@ -7,17 +7,19 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export default defineConfig({
-  plugins: [react()],
-  base: '/Juul-D/', // Базовый путь для репозитория
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
+export default defineConfig(({ mode }) => {
+  return {
+    plugins: [react()],
+    base: mode === 'production' ? '/Juul-D/' : '/',
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+      },
     },
-  },
-  server: {
-    fs: {
-      strict: false,
+    server: {
+      fs: {
+        strict: false,
+      },
     },
-  },
+  };
 });

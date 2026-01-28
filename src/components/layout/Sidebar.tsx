@@ -22,7 +22,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isMobileOpen,
   closeMobileSidebar
 }) => {
-  const { signOut, user, triggerAdminSequence, isAdmin } = useAuth();
+  const { signOut, user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
@@ -37,7 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const handleLogout = async () => {
     await signOut();
     navigate('/auth');
-    if (window.innerWidth < 768) closeMobileSidebar();
+    if (window.innerWidth < 1150) closeMobileSidebar();
   };
 
   const handleRefreshData = async () => {
@@ -71,7 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleLinkClick = () => {
-    if (window.innerWidth < 768) closeMobileSidebar();
+    if (window.innerWidth < 1150) closeMobileSidebar();
   }
 
   // Helper to split label for styling
@@ -97,7 +97,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         bg-[#050b14]/95 backdrop-blur-xl border-r border-violet-500/20 
         flex flex-col transition-[width,transform] duration-300 ease-in-out
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} 
-        md:translate-x-0
+        min-[1150px]:translate-x-0
         ${isDesktopCollapsed ? 'w-20' : 'w-64'}
         overflow-visible shadow-[0_0_50px_rgba(0,0,0,0.5)]
       `}
@@ -105,7 +105,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Mobile Close Button */}
       <button 
         onClick={closeMobileSidebar}
-        className="md:hidden absolute top-2 right-2 text-slate-400 hover:text-white p-2 z-[60] bg-black/50 rounded-full border border-white/10"
+        className="min-[1150px]:hidden absolute top-2 right-2 text-slate-400 hover:text-white p-2 z-[60] bg-black/50 rounded-full border border-white/10"
       >
         <X size={20} />
       </button>
@@ -113,7 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Desktop Toggle Button */}
       <button 
         onClick={toggleDesktopSidebar}
-        className="hidden md:flex absolute -right-3 top-24 bg-slate-900 border border-violet-500/50 text-violet-300 rounded-full p-1 shadow-[0_0_10px_rgba(139,92,246,0.3)] hover:text-white hover:scale-110 transition-all z-[60]"
+        className="hidden min-[1150px]:flex absolute -right-3 top-24 bg-slate-900 border border-violet-500/50 text-violet-300 rounded-full p-1 shadow-[0_0_10px_rgba(139,92,246,0.3)] hover:text-white hover:scale-110 transition-all z-[60]"
       >
         {isDesktopCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
       </button>
@@ -123,7 +123,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         
         <div 
           className="flex items-center gap-3 cursor-pointer select-none"
-          onDoubleClick={triggerAdminSequence}
           title="Juul-D System"
         >
            <div className={`relative flex items-center justify-center group transition-all duration-300 ${isDesktopCollapsed ? 'scale-110' : ''}`}>
@@ -135,7 +134,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
            <h1 
              className={`
                font-fantasy text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r ${isAdmin ? 'from-emerald-200 to-teal-200' : 'from-violet-200 to-fuchsia-200'} tracking-widest transition-all duration-300 origin-left drop-shadow-sm
-               ${isDesktopCollapsed ? 'w-0 opacity-0 scale-0 hidden md:block' : 'w-auto opacity-100 scale-100'}
+               ${isDesktopCollapsed ? 'w-0 opacity-0 scale-0 hidden min-[1150px]:block' : 'w-auto opacity-100 scale-100'}
              `}
            >
              JUUL-D
@@ -172,7 +171,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div 
                   className={`
                     font-fantasy tracking-wider text-sm transition-all duration-300 uppercase
-                    ${isDesktopCollapsed ? 'opacity-0 w-0 md:hidden' : 'opacity-100 w-auto'}
+                    ${isDesktopCollapsed ? 'opacity-0 w-0 min-[1150px]:hidden' : 'opacity-100 w-auto'}
                   `}
                 >
                   {renderLabel(item.label)}
@@ -221,7 +220,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span 
               className={`
                 font-fantasy tracking-wider text-sm whitespace-nowrap transition-all duration-300 uppercase
-                ${isDesktopCollapsed ? 'opacity-0 w-0 md:hidden' : 'opacity-100 w-auto'}
+                ${isDesktopCollapsed ? 'opacity-0 w-0 min-[1150px]:hidden' : 'opacity-100 w-auto'}
               `}
             >
               Выйти

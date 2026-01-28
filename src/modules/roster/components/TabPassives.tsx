@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { CharacterData, TimeUnit } from '../types';
+import React, { useState, useMemo } from 'react';
+import { CharacterData, TimeUnit, StatType, Bonus } from '../types';
 import { Card, StyledInput, StyledTextarea, Button, BonusInput, TagInput, TimeInput, TabRadarCharts, CommonTagToggles } from './Shared';
 import { Plus, Trash2, Clock, Hourglass, Check, X, ChevronRight, ChevronDown, Eye, EyeOff } from 'lucide-react';
 import { DisplayMode } from '../App';
@@ -82,20 +82,66 @@ const TabPassives: React.FC<Props> = ({ character, isEditMode, displayMode, onCh
   const shouldShowLore = displayMode === 'lore';
   const shouldShowMech = displayMode === 'mech';
 
-  // Normalize data for chart (similar to TabAbilities)
-  // We filter out flaw groups so we only show bonuses here
-  const chartGroups = passives
-    .filter(g => !g.is_flaw_group)
-    .map(g => ({ 
-      name: g.group_name, 
-      items: g.items 
-    }));
+  // --- Derived Data for Charts (Memoized) ---
+  const structureData = useMemo(() => {
+      const positiveGroups = passives.filter(g => !g.is_flaw_group);
+      
+      const data = positiveGroups.map((g, i) => {
+        const name = g.group_name || "Unknown";
+        let baseName = name.length > 10 ? name.substring(0, 8) + '..' : name;
+        return {
+          subject: baseName + '\u200B'.repeat(i), 
+          value: g.items ? g.items.length : 0
+        };
+      });
+      while (data.length < 3) {
+          data.push({ subject: '\u200B'.repeat(100 + data.length), value: 0 });
+      }
+      return data;
+  }, [passives]);
+
+  const bonusData = useMemo(() => {
+      let phys = 0, magic = 0, unique = 0;
+      // Iterate only positive groups
+      passives.filter(g => !g.is_flaw_group).forEach(g => {
+        if (Array.isArray(g.items)) {
+          g.items.forEach(item => {
+            if (Array.isArray(item.bonuses)) {
+              item.bonuses.forEach(b => {
+                 const val = Number(b.val);
+                 if (!Number.isNaN(val)) {
+                    if (b.stat === StatType.PHYS) phys += val;
+                    if (b.stat === StatType.MAGIC) magic += val;
+                    if (b.stat === StatType.UNIQUE) unique += val;
+                 }
+              });
+            }
+          });
+        }
+      });
+
+      const getValue = (v: number) => Math.max(0, v); 
+
+      return [
+        { subject: t('stat_phys_short', 'ФИЗ'), value: getValue(phys) },
+        { subject: t('stat_mag_short', 'МАГ'), value: getValue(magic) },
+        { subject: t('stat_uni_short', 'УНИК'), value: getValue(unique) },
+      ];
+  }, [passives, t]);
 
   return (
     <div className="space-y-8 animate-fade-in relative">
       
       {/* Charts Visualization - Explicit Emerald Color */}
-      <TabRadarCharts groups={chartGroups} color="#10b981" />
+      {/* PERFORMANCE FIX: Only render charts in View Mode */}
+      {!isEditMode && (
+          <TabRadarCharts 
+              structureData={structureData} 
+              bonusData={bonusData} 
+              color="#10b981" 
+              t={t}
+          />
+      )}
 
       {passives.map((group, gIdx) => {
          // IMPORTANT: Skip if this is a DEBUFF group

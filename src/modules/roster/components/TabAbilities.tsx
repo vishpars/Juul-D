@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { CharacterData, TimeUnit } from '../types';
+import React, { useState, useMemo } from 'react';
+import { CharacterData, TimeUnit, StatType, Bonus } from '../types';
 import { Card, StyledInput, StyledTextarea, Button, BonusInput, TagInput, TimeInput, TabRadarCharts, CommonTagToggles } from './Shared';
 import { Plus, Trash2, Clock, Hourglass, ChevronDown, ChevronRight, Eye, EyeOff, Hash, Check, X } from 'lucide-react';
 import { DisplayMode } from '../App';
@@ -80,17 +80,67 @@ const TabAbilities: React.FC<Props> = ({ character, isEditMode, displayMode, onC
   const shouldShowLore = displayMode === 'lore';
   const shouldShowMech = displayMode === 'mech';
 
-  // Normalize data for chart (include hidden groups in stats calculation)
-  const chartGroups = ability_groups.map(g => ({
-    name: g.name,
-    items: g.abilities
-  }));
+  // --- Derived Data for Charts (Memoized to prevent flickering during text edits) ---
+  const structureData = useMemo(() => {
+      const data = ability_groups.map((g, i) => {
+        const name = g.name || "Unknown";
+        let baseName = name.length > 10 ? name.substring(0, 8) + '..' : name;
+        return {
+          subject: baseName + '\u200B'.repeat(i), 
+          value: g.abilities ? g.abilities.length : 0
+        };
+      });
+      // Pad to at least 3 points for radar chart
+      while (data.length < 3) {
+          data.push({ 
+              subject: '\u200B'.repeat(100 + data.length), 
+              value: 0 
+          });
+      }
+      return data;
+  }, [ability_groups]); // Re-calculates if array reference changes (add/remove) or contents change
+
+  const bonusData = useMemo(() => {
+      let phys = 0, magic = 0, unique = 0;
+      ability_groups.forEach(g => {
+        if (Array.isArray(g.abilities)) {
+          g.abilities.forEach(item => {
+            if (Array.isArray(item.bonuses)) {
+              item.bonuses.forEach(b => {
+                 const val = Number(b.val);
+                 if (!Number.isNaN(val)) {
+                    if (b.stat === StatType.PHYS) phys += val;
+                    if (b.stat === StatType.MAGIC) magic += val;
+                    if (b.stat === StatType.UNIQUE) unique += val;
+                 }
+              });
+            }
+          });
+        }
+      });
+      
+      const getValue = (v: number) => Math.max(0, v); // Only positive for abilities
+
+      return [
+        { subject: t('stat_phys_short', 'ФИЗ'), value: getValue(phys) },
+        { subject: t('stat_mag_short', 'МАГ'), value: getValue(magic) },
+        { subject: t('stat_uni_short', 'УНИК'), value: getValue(unique) },
+      ];
+  }, [ability_groups, t]);
 
   return (
     <div className="space-y-8 animate-fade-in">
       
       {/* Charts Visualization - Explicit Cyan Color */}
-      <TabRadarCharts groups={chartGroups} color="#06b6d4" />
+      {/* PERFORMANCE FIX: Only render charts in View Mode */}
+      {!isEditMode && (
+          <TabRadarCharts 
+              structureData={structureData} 
+              bonusData={bonusData} 
+              color="#06b6d4" 
+              t={t}
+          />
+      )}
 
       {ability_groups.map((group, gIdx) => {
         // Hide if not in edit mode AND either empty or explicitly hidden

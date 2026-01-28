@@ -8,11 +8,26 @@ const getStatusPhrase = (phrases: string[], seed: number) => {
     return phrases[seed % phrases.length];
 };
 
+// Sort helper: Group by Template ID, then by Name
+const sortParticipants = (participants: BattleParticipant[]) => {
+    return [...participants].sort((a, b) => {
+        // Primary Sort: Group by ID (Template)
+        if (a.id !== b.id) {
+            return a.id.localeCompare(b.id);
+        }
+        // Secondary Sort: Name (Natural Order: Rat #1, Rat #2, etc.)
+        return a.profile.name.localeCompare(b.profile.name, undefined, { numeric: true, sensitivity: 'base' });
+    });
+};
+
 export const generateSummary = (participants: BattleParticipant[], round: number): string => {
     let text = "";
+    
+    // Sort for grouping
+    const sortedParticipants = sortParticipants(participants);
 
     // 1. Status Section
-    participants.forEach(p => {
+    sortedParticipants.forEach(p => {
         const { trauma_phys = 0, trauma_mag = 0, trauma_uniq = 0 } = p.battle_stats;
         let phrase = "";
         
@@ -43,7 +58,7 @@ export const generateSummary = (participants: BattleParticipant[], round: number
     const buffs: string[] = [];
     const debuffs: string[] = [];
     
-    participants.forEach(p => {
+    sortedParticipants.forEach(p => {
         p.active_effects.forEach(eff => {
              const isForm = (eff.tags || []).some(t => t.toLowerCase().includes('form') || t.toLowerCase().includes('форма'));
              const isNegative = eff.bonuses.some(b => b.val < 0);
@@ -74,7 +89,7 @@ export const generateSummary = (participants: BattleParticipant[], round: number
 
     text += "Перезарядка:\n";
     const battleCDs: string[] = [];
-    participants.forEach(p => {
+    sortedParticipants.forEach(p => {
         p.cooldowns.forEach(cd => {
              battleCDs.push(`${cd.name} (${p.profile.name}): ${formatCooldown(cd.name, cd.val, cd.unit)}`);
         });
@@ -85,7 +100,10 @@ export const generateSummary = (participants: BattleParticipant[], round: number
 };
 
 export const generateStatsText = (participants: BattleParticipant[]) => {
-    return participants.map(p => {
+    // Sort for grouping
+    const sortedParticipants = sortParticipants(participants);
+
+    return sortedParticipants.map(p => {
         const lines = [];
         // Header: "Name (X ур.)"
         lines.push(`${p.profile.name} (${p.profile.level} ур.)`);

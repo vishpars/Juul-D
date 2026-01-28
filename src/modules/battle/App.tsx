@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { DndContext, DragEndEvent, DragOverlay, useSensor, useSensors, PointerSensor, DragStartEvent, pointerWithin } from '@dnd-kit/core';
+import { DndContext, DragEndEvent, DragOverlay, useSensor, useSensors, MouseSensor, TouchSensor, DragStartEvent, pointerWithin } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { BattleParticipant, LogEntry, SequenceNode, BattleStatus, CharacterTemplate, ActiveEffect, Cooldown, JsonInjury } from './types';
 import { advanceRound, tickActionTimers } from './engine/timeEngine';
@@ -66,7 +66,22 @@ const App: React.FC<BattleModuleProps> = ({ isAdmin = false }) => {
   const [activeDragItem, setActiveDragItem] = useState<any>(null);
   const [activeNode, setActiveNode] = useState<SequenceNode | null>(null);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  // Configure sensors for mobile-friendly Drag & Drop
+  // MouseSensor: standard drag
+  // TouchSensor: requires 250ms hold to activate drag, otherwise it scrolls
+  const sensors = useSensors(
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 10,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    })
+  );
 
   const initRef = useRef(false);
 
@@ -103,7 +118,7 @@ const App: React.FC<BattleModuleProps> = ({ isAdmin = false }) => {
                 id: b.id,
                 name: b.name,
                 status: b.status,
-                source: 'local',
+                source: 'local' as StorageMode,
                 timestamp: b.timestamp || 0
             }));
             combined = [...combined, ...localMapped];
@@ -119,7 +134,7 @@ const App: React.FC<BattleModuleProps> = ({ isAdmin = false }) => {
                     id: b.id,
                     name: b.name,
                     status: b.status,
-                    source: 'server',
+                    source: 'server' as StorageMode,
                     timestamp: new Date(b.created_at).getTime()
                 }));
                 combined = [...combined, ...serverMapped];
@@ -216,6 +231,16 @@ const App: React.FC<BattleModuleProps> = ({ isAdmin = false }) => {
   const handleUpdateParticipant = (id: string, updates: any) => {
       setParticipants(prev => prev.map(p => {
           if (p.instance_id !== id) return p;
+          
+          // Deep merge for profile/stats if necessary, but simple spread usually works for top-level keys
+          // If we are updating profile.name via "profile: {name: ...}", we need to preserve other profile fields
+          if (updates.profile) {
+              return { ...p, profile: { ...p.profile, ...updates.profile } };
+          }
+          if (updates.stats) {
+              return { ...p, stats: { ...p.stats, ...updates.stats } };
+          }
+
           return { ...p, ...updates };
       }));
   };
@@ -232,7 +257,54 @@ const App: React.FC<BattleModuleProps> = ({ isAdmin = false }) => {
   };
 
   const handleRemoveParticipant = (participantId: string) => {
-      setParticipants(prev => prev.filter(p => p.instance_id !== participantId));
+      setParticipants(prev => {
+          // 1. Remove the target
+          const filtered = prev.filter(p => p.instance_id !== participantId);
+
+          // 2. Auto-Renumber duplicates logic
+          const idMap: Record<string, number[]> = {};
+          
+          // Helper to extract base name (removes " #4" suffix)
+          const getBaseName = (name: string) => name.replace(/ #\d+$/, '');
+
+          // Group indices by TemplateID + BaseName to avoid mixing different monsters or custom-renamed ones
+          filtered.forEach((p, idx) => {
+              const base = getBaseName(p.profile.name);
+              const key = `${p.id}|${base}`;
+              if (!idMap[key]) idMap[key] = [];
+              idMap[key].push(idx);
+          });
+
+          // Create copy to mutate names
+          const nextParticipants = [...filtered];
+
+          Object.values(idMap).forEach(indices => {
+              // If group has multiples OR if the single remaining item definitely had a number tag (e.g. we deleted #1 leaving #2)
+              if (indices.length > 0) {
+                  const firstP = nextParticipants[indices[0]];
+                  const baseName = getBaseName(firstP.profile.name);
+                  const wasNumbered = firstP.profile.name.match(/ #\d+$/);
+
+                  // Renumber sequentially if there are multiples or if it was part of a numbered set
+                  if (indices.length > 1 || wasNumbered) {
+                      indices.forEach((pIndex, i) => {
+                          const newName = `${baseName} #${i + 1}`;
+                          if (nextParticipants[pIndex].profile.name !== newName) {
+                              nextParticipants[pIndex] = {
+                                  ...nextParticipants[pIndex],
+                                  profile: {
+                                      ...nextParticipants[pIndex].profile,
+                                      name: newName
+                                  }
+                              };
+                          }
+                      });
+                  }
+              }
+          });
+
+          return nextParticipants;
+      });
   };
 
   const handleRemoveEffect = (participantId: string, effectId: string) => {
@@ -461,22 +533,9 @@ const App: React.FC<BattleModuleProps> = ({ isAdmin = false }) => {
       };
 
       if (storageMode === 'server' && isAdmin) {
-          // If we switched from Local to Server, battleId might not exist in DB yet.
-          // Upsert handles this if ID matches, but our UUIDs might clash if local.
-          // However, for simplicity we assume updateBattle tries to update by ID.
-          // If it fails (ID not found), we might need to create it.
-          // Let's rely on standard update for now, assuming creation happens explicitly.
-          // Actually, if a user loads local battle then switches to Server and saves, 
-          // we should probably check existence or just try to insert if update fails?
-          // Simplest approach: Use updateBattle.
-          
-          // Better logic: Check if we are "migrating".
-          // For now, simple update. 
           const { error } = await updateBattle(battleId, battleState);
           
           if (error) {
-              // Fallback: If update fails (e.g. ID not found in DB), try create/upsert logic manually if needed
-              // But strictly speaking, users should "Create" on server to get a valid DB ID.
               showAlert(`Ошибка сохранения на сервер: ${error.message}. (Если вы переключили режим с Локального, создайте новый бой на сервере)`);
           } else {
               showAlert("Бой успешно сохранен в базе данных.");
@@ -500,67 +559,106 @@ const App: React.FC<BattleModuleProps> = ({ isAdmin = false }) => {
       setBattleName(newName);
   };
 
+  const escapeRegExp = (string: string) => {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+  }
+
   const addParticipant = (template: CharacterTemplate) => {
-      const flatAbilities = (template.ability_groups || []).flatMap(g => g.abilities || []);
-      let passivesToScan = template.flat_passives || [];
-      if (passivesToScan.length === 0 && template.passives) {
-          passivesToScan = template.passives.flatMap(g => g.items);
-      }
-
-      const startupEffects: ActiveEffect[] = [];
-      let logText = "";
-
-      passivesToScan.forEach(pas => {
-          if (!pas.trigger) return;
-          const trig = pas.trigger.toUpperCase();
-          if (trig.includes('START') || trig.includes('НАЧАЛО') || trig.includes('COMBAT') || trig.includes('БОЯ')) {
-              const mechInfo = pas.desc_mech ? ` (${pas.desc_mech})` : '';
-              logText += `> (${template.profile.name}: ${pas.name}${mechInfo})\n`;
-              
-              const hasDuration = pas.dur && pas.dur > 0;
-              startupEffects.push({
-                  id: `start_passive_${pas._id || Math.random()}_${Date.now()}`,
-                  name: pas.name,
-                  tags: [...(pas.tags || []), pas.is_flaw ? 'debuff' : 'buff'],
-                  bonuses: pas.bonuses || [],
-                  duration_left: hasDuration ? pas.dur! : 999,
-                  unit: hasDuration ? (pas.dur_unit || 'turn') : 'battle',
-                  original_ability_id: pas._id
-              });
-          }
-      });
-
-      const newP: BattleParticipant = {
-          ...template,
-          instance_id: `char_${template.id}_${Date.now()}`,
-          is_player: false,
+      // Logic for adding copies with auto-numbering
+      setParticipants(prev => {
+          const baseName = template.profile.name;
+          const sameType = prev.filter(p => p.id === template.id);
           
-          battle_stats: (template as any).battle_stats || {
-              hp_penalty_current: 0,
-              trauma_phys: 0,
-              trauma_mag: 0,
-              trauma_uniq: 0,
-              actions_max: 4,
-              actions_left: 4
-          },
-          active_effects: startupEffects,
-          cooldowns: [],
-          usage_counts: {}, 
-          flat_abilities: flatAbilities,
-          flat_passives: passivesToScan
-      };
-      
-      setParticipants(prev => [...prev, newP]);
+          let newName = baseName;
+          let updatedPrev = [...prev];
 
-      if (logText) {
-          setLogs(prev => [...prev, {
-              id: `trigger_add_${newP.instance_id}_${Date.now()}`,
-              round: round,
-              timestamp: new Date().toISOString(),
-              type: 'action', 
-              text_formatted: logText.trim()
-          }]);
-      }
+          if (sameType.length > 0) {
+              // 1. Rename existing "Base Name" to "Base Name #1" if found
+              updatedPrev = updatedPrev.map(p => {
+                  if (p.id === template.id && p.profile.name === baseName) {
+                      return { ...p, profile: { ...p.profile, name: `${baseName} #1` } };
+                  }
+                  return p;
+              });
+
+              // 2. Find used numbers in names like "Base Name #N"
+              const regex = new RegExp(`^${escapeRegExp(baseName)} #(\\d+)$`);
+              const usedNumbers = updatedPrev
+                  .filter(p => p.id === template.id)
+                  .map(p => {
+                      const match = p.profile.name.match(regex);
+                      return match ? parseInt(match[1]) : 0;
+                  });
+              
+              const maxNum = Math.max(0, ...usedNumbers);
+              newName = `${baseName} #${maxNum + 1}`;
+          }
+
+          const flatAbilities = (template.ability_groups || []).flatMap(g => g.abilities || []);
+          let passivesToScan = template.flat_passives || [];
+          if (passivesToScan.length === 0 && template.passives) {
+              passivesToScan = template.passives.flatMap(g => g.items);
+          }
+
+          const startupEffects: ActiveEffect[] = [];
+          let logText = "";
+
+          passivesToScan.forEach(pas => {
+              if (!pas.trigger) return;
+              const trig = pas.trigger.toUpperCase();
+              if (trig.includes('START') || trig.includes('НАЧАЛО') || trig.includes('COMBAT') || trig.includes('БОЯ')) {
+                  const mechInfo = pas.desc_mech ? ` (${pas.desc_mech})` : '';
+                  logText += `> (${newName}: ${pas.name}${mechInfo})\n`;
+                  
+                  const hasDuration = pas.dur && pas.dur > 0;
+                  startupEffects.push({
+                      id: `start_passive_${pas._id || Math.random()}_${Date.now()}`,
+                      name: pas.name,
+                      tags: [...(pas.tags || []), pas.is_flaw ? 'debuff' : 'buff'],
+                      bonuses: pas.bonuses || [],
+                      duration_left: hasDuration ? pas.dur! : 999,
+                      unit: hasDuration ? (pas.dur_unit || 'turn') : 'battle',
+                      original_ability_id: pas._id
+                  });
+              }
+          });
+
+          const newP: BattleParticipant = {
+              ...template,
+              instance_id: `char_${template.id}_${Date.now()}`,
+              is_player: false,
+              profile: {
+                  ...template.profile,
+                  name: newName // Apply numbered name
+              },
+              
+              battle_stats: (template as any).battle_stats || {
+                  hp_penalty_current: 0,
+                  trauma_phys: 0,
+                  trauma_mag: 0,
+                  trauma_uniq: 0,
+                  actions_max: 4,
+                  actions_left: 4
+              },
+              active_effects: startupEffects,
+              cooldowns: [],
+              usage_counts: {}, 
+              flat_abilities: flatAbilities,
+              flat_passives: passivesToScan
+          };
+
+          if (logText) {
+              setLogs(prevLogs => [...prevLogs, {
+                  id: `trigger_add_${newP.instance_id}_${Date.now()}`,
+                  round: round,
+                  timestamp: new Date().toISOString(),
+                  type: 'action', 
+                  text_formatted: logText.trim()
+              }]);
+          }
+
+          return [...updatedPrev, newP];
+      });
 
       setActiveModal(null);
   };
@@ -1192,7 +1290,7 @@ const App: React.FC<BattleModuleProps> = ({ isAdmin = false }) => {
                         placeholder="ПОИСК ПО ИМЕНИ..." 
                         value={charSearchTerm}
                         onChange={(e) => setCharSearchTerm(e.target.value)}
-                        className="w-full bg-input border border-violet-900/40 rounded pl-9 pr-2 py-2 text-sm text-white focus:border-violet-500 focus:shadow-glow outline-none transition-all placeholder-slate-600 font-sans"
+                        className="w-full bg-[#0b0d12] border border-violet-900/40 rounded pl-9 pr-2 py-2 text-sm text-white focus:border-violet-500 focus:shadow-glow outline-none transition-all placeholder-slate-600 font-sans"
                     />
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-violet-400" />
                 </div>
@@ -1205,11 +1303,11 @@ const App: React.FC<BattleModuleProps> = ({ isAdmin = false }) => {
                                 setSelectedFaction(e.target.value);
                                 setSelectedVolume('All');
                             }}
-                            className="w-full bg-input border border-violet-900/40 rounded pl-8 pr-2 py-1.5 text-xs text-white appearance-none outline-none focus:border-violet-500 focus:shadow-glow transition-all"
+                            className="w-full bg-[#0b0d12] border border-violet-900/40 rounded pl-8 pr-2 py-1.5 text-xs text-white appearance-none outline-none focus:border-violet-500 focus:shadow-glow transition-all"
                         >
-                            <option value="All">ВСЕ ФРАКЦИИ</option>
+                            <option value="All" className="bg-[#0b0d12] text-slate-300">ВСЕ ФРАКЦИИ</option>
                             {uniqueFactions.map(f => (
-                                <option key={f} value={f}>{f.toUpperCase()}</option>
+                                <option key={f} value={f} className="bg-[#0b0d12] text-slate-300">{f.toUpperCase()}</option>
                             ))}
                         </select>
                     </div>
@@ -1219,11 +1317,11 @@ const App: React.FC<BattleModuleProps> = ({ isAdmin = false }) => {
                              <select
                                  value={selectedVolume}
                                  onChange={(e) => setSelectedVolume(e.target.value)}
-                                 className="w-full bg-input border border-violet-900/40 rounded pl-8 pr-2 py-1.5 text-xs text-white appearance-none outline-none focus:border-violet-500 focus:shadow-glow transition-all"
+                                 className="w-full bg-[#0b0d12] border border-violet-900/40 rounded pl-8 pr-2 py-1.5 text-xs text-white appearance-none outline-none focus:border-violet-500 focus:shadow-glow transition-all"
                              >
-                                 <option value="All">ВСЕ ТОМА</option>
+                                 <option value="All" className="bg-[#0b0d12] text-slate-300">ВСЕ ТОМА</option>
                                  {uniqueVolumes.map(v => (
-                                     <option key={v} value={v}>{v.toUpperCase()}</option>
+                                     <option key={v} value={v} className="bg-[#0b0d12] text-slate-300">{v.toUpperCase()}</option>
                                  ))}
                              </select>
                          </div>
@@ -1233,7 +1331,7 @@ const App: React.FC<BattleModuleProps> = ({ isAdmin = false }) => {
             {filteredCharacters.length === 0 ? (
                 <div className="text-slate-500 italic text-center py-8 font-rune">Персонажи не найдены</div>
             ) : (
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
                     {filteredCharacters.map(c => (
                         <button 
                             key={c.id} 
@@ -1274,7 +1372,7 @@ const App: React.FC<BattleModuleProps> = ({ isAdmin = false }) => {
                 </button>
             }
         >
-            <div className="space-y-2 max-h-64 overflow-y-auto">
+            <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
                 {savedBattles.length === 0 && <div className="text-center text-slate-500 py-4 italic">Нет сохраненных боев</div>}
                 {savedBattles.map(b => (
                     <div key={b.id} className="w-full flex items-center justify-between p-3 bg-panel hover:bg-slate-900 border border-violet-900/30 hover:border-violet-500/50 rounded group mb-2 transition-all">
@@ -1310,7 +1408,7 @@ const App: React.FC<BattleModuleProps> = ({ isAdmin = false }) => {
         <Modal isOpen={activeModal === 'CREATE_BATTLE'} onClose={closeModal} title="Новая Симуляция" footer={<button onClick={confirmCreateBattle} className="px-4 py-2 bg-violet-900/50 border border-violet-500/50 text-white rounded hover:bg-violet-800 hover:shadow-glow font-bold font-rune uppercase">Инициализация</button>}>
             <div className="flex flex-col gap-2">
                 <label className="text-sm text-slate-400 font-rune uppercase tracking-wider">Кодовое название</label>
-                <input type="text" value={modalInput} onChange={(e) => setModalInput(e.target.value)} placeholder="Напр. Инцидент Омега-7" className="bg-input border border-violet-900/40 p-2 rounded text-white focus:border-violet-500 focus:shadow-glow outline-none transition-all font-sans" autoFocus />
+                <input type="text" value={modalInput} onChange={(e) => setModalInput(e.target.value)} placeholder="Напр. Инцидент Омега-7" className="bg-[#0b0d12] border border-violet-900/40 p-2 rounded text-white focus:border-violet-500 focus:shadow-glow outline-none transition-all font-sans" autoFocus />
                 {isAdmin && (
                     <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-1">
                         Источник: {storageMode === 'server' ? <Cloud size={10} className="text-emerald-500"/> : <HardDrive size={10} className="text-yellow-500"/>} 
@@ -1336,7 +1434,7 @@ const App: React.FC<BattleModuleProps> = ({ isAdmin = false }) => {
                      : "Симуляция завершена. Внимание: Вы не администратор, травмы НЕ будут записаны в базу данных персонажей."}
                 </p>
                 {isAdmin && (
-                    <div className="bg-input border border-violet-900/30 rounded p-2 max-h-60 overflow-y-auto">
+                    <div className="bg-[#0b0d12] border border-violet-900/30 rounded p-2 max-h-60 overflow-y-auto custom-scrollbar">
                         {participants.filter(p => p.medcard.injuries.length > 0).length === 0 ? (<div className="text-slate-500 italic text-center p-2">Нет критических повреждений для регистрации.</div>) : (participants.filter(p => p.medcard.injuries.length > 0).map(p => (<div key={p.instance_id} className={`flex items-center justify-between p-2 rounded mb-1 cursor-pointer border transition-all ${participantsToSave.has(p.instance_id) ? 'bg-red-900/20 border-red-500/50 shadow-glow-red' : 'bg-panel border-violet-900/20 opacity-60'}`} onClick={() => handleToggleSaveParticipant(p.instance_id)}><div className="flex items-center gap-2"><div className={`w-4 h-4 rounded border flex items-center justify-center ${participantsToSave.has(p.instance_id) ? 'bg-red-600 border-red-400' : 'border-slate-600'}`}>{participantsToSave.has(p.instance_id) && <span className="text-white text-xs font-bold">✓</span>}</div><span className="font-bold text-sm font-rune">{p.profile.name}</span></div><div className="text-xs text-red-300 font-mono">{p.medcard.injuries.length} РАН</div></div>)))}
                     </div>
                 )}
@@ -1431,9 +1529,9 @@ const App: React.FC<BattleModuleProps> = ({ isAdmin = false }) => {
                 </div>
             </header>
 
-            <main className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-12 gap-4 relative z-10">
+            <main className="flex-1 min-h-0 grid grid-cols-1 min-[1150px]:grid-cols-12 gap-4 relative z-10">
                 {/* LEFT PANEL: Participants */}
-                <div className="col-span-12 md:col-span-3 h-full flex flex-col min-h-0 bg-slate-900/85 backdrop-blur-sm border border-violet-900/20 rounded-lg overflow-hidden">
+                <div className="col-span-12 min-[1150px]:col-span-3 h-full flex flex-col min-h-0 bg-slate-900/85 backdrop-blur-sm border border-violet-900/20 rounded-lg overflow-hidden">
                      <div className="flex items-center justify-between p-3 border-b border-violet-900/30 bg-[#020408]/50 shrink-0">
                         <h2 className="text-xs font-bold text-violet-400 uppercase tracking-widest font-rune">Участники</h2>
                         <button onClick={() => setActiveModal('CHAR_SELECT')} className="text-violet-400 hover:text-white transition-all">
@@ -1450,12 +1548,13 @@ const App: React.FC<BattleModuleProps> = ({ isAdmin = false }) => {
                             onAddDebuff={handleAddDebuff}
                             onRemoveEffect={handleRemoveEffect}
                             onRemoveCooldown={handleRemoveCooldown}
+                            onUpdateParticipant={handleUpdateParticipant}
                         />
                      </div>
                 </div>
 
                 {/* CENTER PANEL: Canvas */}
-                <div className="col-span-12 md:col-span-6 h-full flex flex-col gap-3 min-h-0">
+                <div className="col-span-12 min-[1150px]:col-span-6 h-full flex flex-col gap-3 min-h-0">
                      <div className="flex-1 relative border border-violet-900/20 rounded bg-slate-900/80 backdrop-blur-sm h-full overflow-hidden flex flex-col">
                          {/* Canvas Decoration */}
                          <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-violet-800/30 pointer-events-none"></div>
@@ -1477,7 +1576,7 @@ const App: React.FC<BattleModuleProps> = ({ isAdmin = false }) => {
                 </div>
 
                 {/* RIGHT PANEL: Logs */}
-                <div className="col-span-12 md:col-span-3 h-full flex flex-col min-h-0">
+                <div className="col-span-12 min-[1150px]:col-span-3 h-full flex flex-col min-h-0">
                      <BattleLog 
                         logs={logs} 
                         currentRound={round} 

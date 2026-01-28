@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
-import { ChevronDown, ChevronRight, User, Activity, Clock, Zap, Layers, Shield, Trash2, HeartCrack, PlusCircle, Skull, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, User, Activity, Clock, Zap, Layers, Shield, Trash2, HeartCrack, PlusCircle, Skull, X, Edit2, Save, Sword, Wand2, Crown } from 'lucide-react';
 import { BattleParticipant, JsonAbility, JsonItem, Cooldown, ActiveEffect } from '../types';
 import { formatCooldown, formatDuration, TRAUMA_DEFINITIONS } from '../constants';
 
@@ -162,7 +162,7 @@ const DraggableAbility: React.FC<DraggableAbilityProps> = ({ charId, ability, va
 };
 
 const ItemChip: React.FC<{ item: JsonItem, isEquipped?: boolean, onToggle?: () => void }> = ({ item, isEquipped, onToggle }) => (
-    <div className="group/chip relative flex items-center justify-between text-xs bg-input p-1.5 rounded border border-violet-900/20 mb-1 hover:border-violet-500/40 transition-colors">
+    <div className="group/chip relative flex items-center justify-between text-xs bg-[#0b0d12] p-1.5 rounded border border-violet-900/20 mb-1 hover:border-violet-500/40 transition-colors">
         <span className={isEquipped ? 'text-violet-300 shadow-glow' : 'text-slate-500'}>{item.name}</span>
         {onToggle && (
             <button 
@@ -226,11 +226,13 @@ interface Props {
   onAddDebuff: (participantId: string, name: string, tag: string, val: number, dur: number, unit: string, extraTags?: string) => void;
   onRemoveEffect?: (participantId: string, effectId: string) => void;
   onRemoveCooldown?: (participantId: string, cooldownId: string) => void;
+  onUpdateParticipant?: (id: string, updates: any) => void;
 }
 
-const SourcePanel: React.FC<Props> = ({ participants, onToggleEquip, onRemoveParticipant, onAddInjury, onRemoveInjury, onAddDebuff, onRemoveEffect, onRemoveCooldown }) => {
+const SourcePanel: React.FC<Props> = ({ participants, onToggleEquip, onRemoveParticipant, onAddInjury, onRemoveInjury, onAddDebuff, onRemoveEffect, onRemoveCooldown, onUpdateParticipant }) => {
   const [openParticipants, setOpenParticipants] = useState<Record<string, boolean>>({});
   const [selectedTrauma, setSelectedTrauma] = useState<string>(Object.keys(TRAUMA_DEFINITIONS)[0]);
+  const [editMode, setEditMode] = useState<string | null>(null); // Participant ID currently being edited
   
   // Custom Debuff State
   const [debuffState, setDebuffState] = useState<DebuffFormState>({ name: '', mod: '-5', stat: 'phys', tag: '', dur: '2', unit: 'turn' });
@@ -254,9 +256,10 @@ const SourcePanel: React.FC<Props> = ({ participants, onToggleEquip, onRemovePar
   };
 
   return (
-    <div className="flex-1 overflow-y-auto space-y-4 px-1 pb-10">
+    <div className="flex-1 overflow-y-auto space-y-4 px-1 pb-10 custom-scrollbar">
       {participants.map(p => {
         const isOpen = openParticipants[p.instance_id] ?? true;
+        const isEditing = editMode === p.instance_id;
 
         const activeNames = new Set(p.active_effects.map(e => e.name));
         const cooldownMap = new Map<string, Cooldown>();
@@ -312,8 +315,68 @@ const SourcePanel: React.FC<Props> = ({ participants, onToggleEquip, onRemovePar
             {isOpen && (
                 <div className="p-2 space-y-1 bg-black/10">
                     
+                    {/* EDIT MODE TOGGLE */}
+                    <div className="flex justify-end mb-2">
+                        {isEditing ? (
+                            <button 
+                                onClick={() => setEditMode(null)} 
+                                className="flex items-center gap-1 text-[10px] bg-emerald-900/30 text-emerald-400 px-2 py-1 rounded border border-emerald-500/30 hover:bg-emerald-800/50"
+                            >
+                                <Save size={10} /> Сохранить
+                            </button>
+                        ) : (
+                            <button 
+                                onClick={() => setEditMode(p.instance_id)} 
+                                className="flex items-center gap-1 text-[10px] bg-slate-900/50 text-slate-400 px-2 py-1 rounded border border-slate-700 hover:text-white"
+                            >
+                                <Edit2 size={10} /> Ред.
+                            </button>
+                        )}
+                    </div>
+
+                    {/* STATS & NAME EDITOR */}
+                    {isEditing && onUpdateParticipant && (
+                        <div className="bg-[#0b0d12] p-2 rounded border border-violet-900/30 mb-2 space-y-2">
+                            <input 
+                                className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white"
+                                value={p.profile.name}
+                                onChange={(e) => onUpdateParticipant(p.instance_id, { profile: { ...p.profile, name: e.target.value } })}
+                                placeholder="Имя"
+                            />
+                            <div className="flex gap-2">
+                                <div className="flex-1 flex items-center gap-1 bg-red-900/10 p-1 rounded border border-red-900/20">
+                                    <Sword size={10} className="text-red-500" />
+                                    <input 
+                                        type="number" 
+                                        className="w-full bg-transparent text-xs text-center text-red-200 outline-none"
+                                        value={p.stats.phys}
+                                        onChange={(e) => onUpdateParticipant(p.instance_id, { stats: { ...p.stats, phys: parseInt(e.target.value) } })}
+                                    />
+                                </div>
+                                <div className="flex-1 flex items-center gap-1 bg-blue-900/10 p-1 rounded border border-blue-900/20">
+                                    <Wand2 size={10} className="text-blue-500" />
+                                    <input 
+                                        type="number" 
+                                        className="w-full bg-transparent text-xs text-center text-blue-200 outline-none"
+                                        value={p.stats.magic}
+                                        onChange={(e) => onUpdateParticipant(p.instance_id, { stats: { ...p.stats, magic: parseInt(e.target.value) } })}
+                                    />
+                                </div>
+                                <div className="flex-1 flex items-center gap-1 bg-purple-900/10 p-1 rounded border border-purple-900/20">
+                                    <Crown size={10} className="text-purple-500" />
+                                    <input 
+                                        type="number" 
+                                        className="w-full bg-transparent text-xs text-center text-purple-200 outline-none"
+                                        value={p.stats.unique}
+                                        onChange={(e) => onUpdateParticipant(p.instance_id, { stats: { ...p.stats, unique: parseInt(e.target.value) } })}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <AccordionSection title="Травмы" icon={<HeartCrack size={10}/>} defaultOpen={false} titleColor="text-red-400">
-                        <div className="flex flex-col gap-2 bg-input/50 p-2 rounded border border-red-900/20">
+                        <div className="flex flex-col gap-2 bg-[#0b0d12]/50 p-2 rounded border border-red-900/20">
                             {p.medcard.injuries.length > 0 ? (
                                 <div className="space-y-1">
                                     {p.medcard.injuries.map((inj, idx) => {
@@ -336,12 +399,12 @@ const SourcePanel: React.FC<Props> = ({ participants, onToggleEquip, onRemovePar
 
                             <div className="flex gap-1 mt-1 border-t border-violet-900/20 pt-2">
                                 <select 
-                                    className="flex-1 bg-input text-[10px] text-white border border-violet-900/30 rounded px-1 outline-none focus:border-red-500"
+                                    className="flex-1 bg-[#0b0d12] text-[10px] text-white border border-violet-900/30 rounded px-1 outline-none focus:border-red-500"
                                     value={selectedTrauma}
                                     onChange={(e) => setSelectedTrauma(e.target.value)}
                                 >
                                     {Object.entries(TRAUMA_DEFINITIONS).map(([key, def]) => (
-                                        <option key={key} value={key}>{def.label} ({def.value})</option>
+                                        <option key={key} value={key} className="bg-[#0b0d12] text-white">{def.label} ({def.value})</option>
                                     ))}
                                 </select>
                                 <button 
@@ -356,12 +419,12 @@ const SourcePanel: React.FC<Props> = ({ participants, onToggleEquip, onRemovePar
                     
                     {/* CUSTOM DEBUFFS SECTION */}
                     <AccordionSection title="Ручные Эффекты" icon={<Skull size={10}/>} defaultOpen={false} titleColor="text-fuchsia-400">
-                         <div className="bg-input/50 p-2 rounded border border-fuchsia-900/20 space-y-2">
+                         <div className="bg-[#0b0d12]/50 p-2 rounded border border-fuchsia-900/20 space-y-2">
                              <div className="flex flex-col gap-1">
                                  <input 
                                     type="text" 
                                     placeholder="Название эффекта..." 
-                                    className="text-[10px] bg-input border border-violet-900/30 rounded px-1 py-1 text-white placeholder-slate-600 focus:border-fuchsia-500 outline-none"
+                                    className="text-[10px] bg-[#0b0d12] border border-violet-900/30 rounded px-1 py-1 text-white placeholder-slate-600 focus:border-fuchsia-500 outline-none"
                                     value={debuffState.name}
                                     onChange={(e) => setDebuffState({...debuffState, name: e.target.value})}
                                  />
@@ -369,7 +432,7 @@ const SourcePanel: React.FC<Props> = ({ participants, onToggleEquip, onRemovePar
                                  <input 
                                     type="text" 
                                     placeholder="Доп. тег (напр. огонь)" 
-                                    className="text-[10px] bg-input border border-violet-900/30 rounded px-1 py-1 text-white placeholder-slate-600 focus:border-fuchsia-500 outline-none"
+                                    className="text-[10px] bg-[#0b0d12] border border-violet-900/30 rounded px-1 py-1 text-white placeholder-slate-600 focus:border-fuchsia-500 outline-none"
                                     value={debuffState.tag}
                                     onChange={(e) => setDebuffState({...debuffState, tag: e.target.value})}
                                  />
@@ -377,36 +440,36 @@ const SourcePanel: React.FC<Props> = ({ participants, onToggleEquip, onRemovePar
                                  <div className="flex gap-1 items-center">
                                      <input 
                                         type="number" 
-                                        className="w-12 text-[10px] bg-input border border-violet-900/30 rounded px-1 py-1 text-white text-center"
+                                        className="w-12 text-[10px] bg-[#0b0d12] border border-violet-900/30 rounded px-1 py-1 text-white text-center"
                                         value={debuffState.mod}
                                         onChange={(e) => setDebuffState({...debuffState, mod: e.target.value})}
                                      />
                                      <select 
-                                        className="w-16 text-[10px] bg-input border border-violet-900/30 rounded px-1 py-1 text-white"
+                                        className="w-16 text-[10px] bg-[#0b0d12] border border-violet-900/30 rounded px-1 py-1 text-white"
                                         value={debuffState.stat}
                                         onChange={(e) => setDebuffState({...debuffState, stat: e.target.value})}
                                      >
-                                         <option value="phys">ФИЗ</option>
-                                         <option value="mag">МАГ</option>
-                                         <option value="uniq">УНИК</option>
-                                         <option value="none">ОБЩ</option>
+                                         <option value="phys" className="bg-[#0b0d12]">ФИЗ</option>
+                                         <option value="mag" className="bg-[#0b0d12]">МАГ</option>
+                                         <option value="uniq" className="bg-[#0b0d12]">УНИК</option>
+                                         <option value="none" className="bg-[#0b0d12]">ОБЩ</option>
                                      </select>
                                      
                                      <input 
                                         type="number"
-                                        className="w-10 text-[10px] bg-input border border-violet-900/30 rounded px-1 py-1 text-white text-center"
+                                        className="w-10 text-[10px] bg-[#0b0d12] border border-violet-900/30 rounded px-1 py-1 text-white text-center"
                                         value={debuffState.dur}
                                         onChange={(e) => setDebuffState({...debuffState, dur: e.target.value})}
                                      />
 
                                      <select 
-                                        className="flex-1 text-[10px] bg-input border border-violet-900/30 rounded px-1 py-1 text-white"
+                                        className="flex-1 text-[10px] bg-[#0b0d12] border border-violet-900/30 rounded px-1 py-1 text-white"
                                         value={debuffState.unit}
                                         onChange={(e) => setDebuffState({...debuffState, unit: e.target.value})}
                                      >
-                                         <option value="turn">Ход</option>
-                                         <option value="action">Дейст</option>
-                                         <option value="scene">Сцена</option>
+                                         <option value="turn" className="bg-[#0b0d12]">Ход</option>
+                                         <option value="action" className="bg-[#0b0d12]">Дейст</option>
+                                         <option value="scene" className="bg-[#0b0d12]">Сцена</option>
                                      </select>
                                  </div>
                                  <button 

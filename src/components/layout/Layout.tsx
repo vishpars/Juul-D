@@ -22,8 +22,8 @@ export const Layout: React.FC = () => {
         </div>
       )}
       
-      {/* Mobile Header */}
-      <header className="md:hidden fixed top-0 left-0 right-0 h-12 bg-[#050b14]/90 backdrop-blur-md border-b border-violet-900/20 z-40 flex items-center px-4 justify-between">
+      {/* Mobile Header - Visible until 1150px */}
+      <header className="min-[1150px]:hidden fixed top-0 left-0 right-0 h-12 bg-[#050b14]/90 backdrop-blur-md border-b border-violet-900/20 z-40 flex items-center px-4 justify-between">
         <div className="flex items-center gap-3">
           <button 
             onClick={() => setIsMobileOpen(true)}
@@ -43,10 +43,10 @@ export const Layout: React.FC = () => {
         </div>
       </header>
 
-      {/* Mobile Backdrop Overlay */}
+      {/* Mobile Backdrop Overlay - Visible until 1150px when menu is open */}
       {isMobileOpen && (
         <div 
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 md:hidden animate-fadeIn"
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 min-[1150px]:hidden animate-fadeIn"
           onClick={() => setIsMobileOpen(false)}
         />
       )}
@@ -58,14 +58,13 @@ export const Layout: React.FC = () => {
         closeMobileSidebar={() => setIsMobileOpen(false)}
       />
       
-      {/* Main content - Relative and z-10 to sit above background */}
-      {/* Updated: Removed container/mx-auto and desktop padding to allow full-screen modules */}
+      {/* Main content - Adjusted left padding for 1150px breakpoint */}
       <main 
         className={`
           min-h-screen relative z-10 transition-all duration-300 ease-in-out
-          pt-12 md:pt-0
-          md:pl-20 
-          ${isDesktopCollapsed ? '' : 'md:pl-64'}
+          pt-12 min-[1150px]:pt-0
+          min-[1150px]:pl-20 
+          ${isDesktopCollapsed ? '' : 'min-[1150px]:pl-64'}
         `}
       >
         <Outlet />

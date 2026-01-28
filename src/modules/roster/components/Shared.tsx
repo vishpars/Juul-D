@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Bonus, StatType, TimeUnit } from '../types';
 import { 
   Trash2, Plus, Sword, Wand2, Crown, Shield, Heart, Coins, 
@@ -188,7 +188,8 @@ export const TimeInput = ({
 
 // --- Complex Components ---
 
-export const TagInput = ({ tags, onChange, isEditMode }: { tags: string[], onChange: (t: string[]) => void, isEditMode: boolean }) => {
+// Memoized to prevent input lag in large lists
+export const TagInput = React.memo(({ tags, onChange, isEditMode }: { tags: string[], onChange: (t: string[]) => void, isEditMode: boolean }) => {
   /* [DIALECT] */ const { t } = useDialect();
   if (!isEditMode) return null;
 
@@ -196,7 +197,11 @@ export const TagInput = ({ tags, onChange, isEditMode }: { tags: string[], onCha
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && input.trim()) {
       e.preventDefault();
-      onChange([...tags, input.trim()]);
+      // Ensure lower case for better matching
+      const newTag = input.trim().toLowerCase();
+      if (!tags.includes(newTag)) {
+          onChange([...tags, newTag]);
+      }
       setInput("");
     }
   };
@@ -221,7 +226,11 @@ export const TagInput = ({ tags, onChange, isEditMode }: { tags: string[], onCha
       )}
     </div>
   );
-};
+}, (prev, next) => {
+    // Only re-render if tags array changed or edit mode toggled
+    return prev.isEditMode === next.isEditMode && 
+           JSON.stringify(prev.tags) === JSON.stringify(next.tags);
+});
 
 export const CommonTagToggles = ({ tags = [], onChange }: { tags: string[], onChange: (t: string[]) => void }) => {
   /* [DIALECT] */ const { t } = useDialect();
@@ -234,7 +243,6 @@ export const CommonTagToggles = ({ tags = [], onChange }: { tags: string[], onCh
     }
   };
 
-  // Reverted to Standard Russian for default view
   const checkboxes = [
     { key: 'buff', label: t('tag_buff', 'Бафф?') },
     { key: 'form', label: t('tag_form', 'Форма?') },
@@ -315,10 +323,17 @@ export const BonusInput = ({ bonuses, onChange, isEditMode }: { bonuses: Bonus[]
 
 // --- Visualization Charts ---
 
-export const TabRadarCharts = ({ groups, isDebuff = false, color }: { groups: { name: string, items: { bonuses: Bonus[] }[] }[], isDebuff?: boolean, color?: string }) => {
-  /* [DIALECT] */ const { t } = useDialect();
+interface ChartProps {
+  structureData: { subject: string, value: number }[];
+  bonusData: { subject: string, value: number }[];
+  isDebuff?: boolean;
+  color?: string;
+  t: (key: string, def: string) => string;
+}
 
-  if (!groups || groups.length === 0) {
+// Memoized Chart Component to prevent re-renders on input typing
+const TabRadarChartsImpl = React.memo(({ structureData, bonusData, isDebuff = false, color, t }: ChartProps) => {
+  if (structureData.length === 0 || structureData.every(d => d.value === 0)) {
       return (
         <div className="flex flex-col items-center justify-center h-32 border border-violet-900/20 border-dashed rounded-lg bg-violet-900/5 mb-6 text-slate-600 gap-2">
             <Ghost size={24} className="opacity-30" />
@@ -327,65 +342,22 @@ export const TabRadarCharts = ({ groups, isDebuff = false, color }: { groups: { 
       );
   }
 
-  const structureData = groups.map((g, i) => {
-    const name = g.name || "Unknown"; // Fallback name
-    let baseName = name.length > 10 ? name.substring(0, 8) + '..' : name;
-    return {
-      subject: baseName + '\u200B'.repeat(i), 
-      value: g.items ? g.items.length : 0
-    };
-  });
-
-  while (structureData.length < 3) {
-      structureData.push({ 
-          subject: '\u200B'.repeat(100 + structureData.length), 
-          value: 0 
-      });
-  }
-
   const maxStructureVal = Math.max(...structureData.map(d => d.value), 3);
-
-  let phys = 0, magic = 0, unique = 0;
-  groups.forEach(g => {
-    if (Array.isArray(g.items)) {
-      g.items.forEach(item => {
-        if (Array.isArray(item.bonuses)) {
-          item.bonuses.forEach(b => {
-             const val = Number(b.val);
-             if (!Number.isNaN(val)) {
-                if (b.stat === StatType.PHYS) phys += val;
-                if (b.stat === StatType.MAGIC) magic += val;
-                if (b.stat === StatType.UNIQUE) unique += val;
-             }
-          });
-        }
-      });
-    }
-  });
-
-  const getValue = (v: number) => isDebuff ? Math.abs(v) : Math.max(0, v);
-
-  const bonusData = [
-    { subject: t('stat_phys_short', 'ФИЗ'), value: getValue(phys) },
-    { subject: t('stat_mag_short', 'МАГ'), value: getValue(magic) },
-    { subject: t('stat_uni_short', 'УНИК'), value: getValue(unique) },
-  ];
-
   const maxBonusVal = Math.max(...bonusData.map(d => d.value), 5);
   
   const defaultColor = isDebuff ? "#ef4444" : "#8b5cf6"; // Red or Violet
   const mainColor = color || defaultColor;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 h-auto">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 h-48">
        
-       <div className="bg-[#050b14] border border-violet-900/20 shadow-md p-2 relative h-48 flex flex-col rune-clip-r">
+       <div className="bg-[#050b14] border border-violet-900/20 shadow-md p-2 relative flex flex-col rune-clip-r h-full">
           <div className="absolute top-2 left-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest z-10 font-serif">
              {t('viz_structure', 'Структура')}
           </div>
-          {/* Fix: explicit pixel min-height/width on parent div to prevent Recharts calculation errors */}
-          <div style={{ width: '100%', height: '100%', minHeight: '160px', minWidth: '200px', position: 'relative' }}>
-            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
+          {/* Robust container for Recharts */}
+          <div className="flex-1 min-h-0 relative">
+            <div className="absolute inset-0">
                 <ResponsiveContainer width="100%" height="100%">
                 <RadarChart cx="50%" cy="50%" outerRadius="65%" data={structureData}>
                     <PolarGrid stroke="#334155" strokeOpacity={0.4} />
@@ -414,13 +386,12 @@ export const TabRadarCharts = ({ groups, isDebuff = false, color }: { groups: { 
           </div>
        </div>
 
-       <div className="bg-[#050b14] border border-violet-900/20 shadow-md p-2 relative h-48 flex flex-col rune-clip-r">
+       <div className="bg-[#050b14] border border-violet-900/20 shadow-md p-2 relative flex flex-col rune-clip-r h-full">
           <div className="absolute top-2 left-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest z-10 font-serif">
              {isDebuff ? t('viz_penalties', "Штрафы") : t('viz_bonuses', "Бонусы")}
           </div>
-          {/* Fix: explicit pixel min-height/width on parent div to prevent Recharts calculation errors */}
-          <div style={{ width: '100%', height: '100%', minHeight: '160px', minWidth: '200px', position: 'relative' }}>
-            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
+          <div className="flex-1 min-h-0 relative">
+            <div className="absolute inset-0">
                 <ResponsiveContainer width="100%" height="100%">
                 <RadarChart cx="50%" cy="50%" outerRadius="65%" data={bonusData}>
                     <PolarGrid stroke="#334155" strokeOpacity={0.4} />
@@ -450,4 +421,15 @@ export const TabRadarCharts = ({ groups, isDebuff = false, color }: { groups: { 
        </div>
     </div>
   );
-};
+}, (prev, next) => {
+    // Custom comparison to prevent re-render if data is deep equal
+    // JSON stringify is fast enough for these small data structures
+    return (
+        prev.color === next.color &&
+        prev.isDebuff === next.isDebuff &&
+        JSON.stringify(prev.structureData) === JSON.stringify(next.structureData) &&
+        JSON.stringify(prev.bonusData) === JSON.stringify(next.bonusData)
+    );
+});
+
+export const TabRadarCharts = (props: ChartProps) => <TabRadarChartsImpl {...props} />;

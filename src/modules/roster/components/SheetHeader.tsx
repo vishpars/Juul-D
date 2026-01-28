@@ -163,7 +163,7 @@ const SheetHeader: React.FC<Props> = ({ character, isEditMode, onChange, display
     <div className="space-y-6 mb-6">
       
       {/* 1. Header Controls & Trauma Bar */}
-      <div className="bg-[#050b14] border border-violet-900/30 p-3 sticky top-16 z-40 shadow-2xl rune-clip-r">
+      <div className="bg-[#050b14] border border-violet-900/30 p-3 relative min-[1150px]:sticky min-[1150px]:top-16 z-40 shadow-2xl rune-clip-r">
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
           
           {/* Trauma Bar (The "Health" Bar) */}
@@ -436,7 +436,7 @@ const SheetHeader: React.FC<Props> = ({ character, isEditMode, onChange, display
                  </div>
 
                  <div className="flex gap-4 h-48 relative">
-                    {/* Compact Chart - ABSOLUTE positioning to prevent flex width calculation issues */}
+                    {/* Compact Chart - ABSOLUTE positioning + flex-1 min-h-0 to prevent flex width calculation issues */}
                     {/* Added background here for readability against image */}
                     <div className="flex-1 relative min-w-0 h-full bg-slate-950/70 backdrop-blur-sm rounded-xl border border-violet-900/20 overflow-hidden">
                        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>

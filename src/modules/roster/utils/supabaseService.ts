@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabase';
-import { CharacterData, InjuryDefinition, TimeUnit, Ability, TrainingRecord } from '../types';
+import { CharacterData, InjuryDefinition, TimeUnit, Ability, TrainingRecord, BattleTag } from '../types';
 import { DEFAULT_INJURIES, DEFAULT_TIME_UNITS } from '../constants';
 import { CacheService } from '../../../utils/cache';
 
@@ -257,6 +257,64 @@ export const getAllCharacters = async (): Promise<CharacterData[]> => {
   }
 };
 
+export const syncBattleTags = async (char: CharacterData) => {
+    // 1. Collect all tags from the character sheet
+    const collectedTags = new Set<string>();
+
+    const addTags = (tags: string[]) => {
+        if (!tags) return;
+        tags.forEach(t => collectedTags.add(t.toLowerCase().trim()));
+    };
+
+    // Equipment
+    char.equipment.wearable.forEach(i => addTags(i.tags));
+    char.equipment.usable.forEach(i => addTags(i.tags));
+    
+    // Abilities
+    char.ability_groups.forEach(g => {
+        addTags(g.tags);
+        g.abilities.forEach(a => addTags(a.tags));
+    });
+
+    // Passives
+    char.passives.forEach(g => {
+        addTags(g.tags);
+        g.items.forEach(p => addTags(p.tags));
+    });
+
+    const tagsArray = Array.from(collectedTags).filter(Boolean);
+    if (tagsArray.length === 0) return;
+
+    // 2. Fetch existing tags to minimize writes/conflicts
+    // We fetch only tags that match what we have to see what's missing
+    const { data: existingTags } = await supabase
+        .from('battle_tags')
+        .select('tag')
+        .in('tag', tagsArray);
+
+    const existingSet = new Set((existingTags || []).map((r: any) => r.tag));
+    
+    // 3. Filter missing tags
+    const missingTags = tagsArray.filter(t => !existingSet.has(t));
+
+    if (missingTags.length === 0) return;
+
+    // 4. Insert missing tags
+    const rowsToInsert = missingTags.map(tag => ({
+        tag,
+        description: 'Автоматически добавлено'
+    }));
+
+    const { error } = await supabase.from('battle_tags').insert(rowsToInsert).select();
+    if (error) {
+        console.warn("Error auto-syncing tags:", error.message);
+    } else {
+        console.log(`Synced ${missingTags.length} new tags to battle_tags.`);
+        // Invalidate cache if we use it for tags later
+        CacheService.remove('battle_tags');
+    }
+};
+
 export const saveCharacter = async (char: CharacterData) => {
   if (!char.id) {
     throw new Error("Critical Error: Character ID missing before save attempt.");
@@ -271,6 +329,9 @@ export const saveCharacter = async (char: CharacterData) => {
       cached.push(char);
   }
   CacheService.set('roster_characters', cached);
+
+  // Sync Tags logic
+  syncBattleTags(char).catch(err => console.error("Tag sync failed silently:", err));
 
   // DB Save
   const payload = { ...char };
@@ -396,6 +457,36 @@ export const saveTimeUnits = async (units: TimeUnit[]) => {
   if (rows.length > 0) await supabase.from('time_units').upsert(rows, { onConflict: 'tag' });
 };
 
+// --- TAGS ---
+
+export const getBattleTags = async (): Promise<BattleTag[]> => {
+    try {
+        const cached = CacheService.get<BattleTag[]>('battle_tags');
+        if (cached) return cached;
+
+        const { data } = await supabase.from('battle_tags').select('*').order('tag');
+        if (!data) return [];
+        
+        CacheService.set('battle_tags', data);
+        return data;
+    } catch (e) {
+        console.error("Failed to fetch battle tags", e);
+        return [];
+    }
+};
+
+export const saveBattleTag = async (tag: BattleTag) => {
+    const { error } = await supabase.from('battle_tags').upsert(tag);
+    if (error) throw new Error(error.message);
+    CacheService.remove('battle_tags');
+};
+
+export const deleteBattleTag = async (tag: string) => {
+    const { error } = await supabase.from('battle_tags').delete().eq('tag', tag);
+    if (error) throw new Error(error.message);
+    CacheService.remove('battle_tags');
+};
+
 // --- TRAINING ---
 
 export const getTrainingData = async (): Promise<TrainingRecord[]> => {
@@ -422,4 +513,138 @@ export const saveTrainingData = async (charId: string, limits: string, day: stri
 
     const { error } = await supabase.from('training').upsert(payload);
     if (error) throw new Error(error.message);
+};
+
+// --- SYSTEM ADMIN TOOLS ---
+
+export const exportFullBackup = async () => {
+    try {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const tables = ['characters', 'battles', 'lore_articles', 'lore_categories', 'maps', 'locations', 'quests', 'library', 'training', 'basic_actions', 'time_units', 'injuries', 'triggers', 'battle_tags'];
+        const backupData: Record<string, any> = {};
+
+        for (const table of tables) {
+            const { data, error } = await supabase.from(table).select('*');
+            if (!error && data) {
+                backupData[table] = data;
+            }
+        }
+
+        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `juul_d_full_backup_${timestamp}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        return true;
+    } catch (e) {
+        console.error("Backup failed", e);
+        throw e;
+    }
+};
+
+export const importFullBackup = async (file: File): Promise<{success: boolean, message: string}> => {
+    try {
+        const text = await file.text();
+        const json = JSON.parse(text);
+        
+        // Define import order to respect foreign keys (Categories before Items)
+        const tablesOrder = [
+            'lore_categories', 
+            'lore_articles', 
+            'maps', 
+            'locations', 
+            'characters', // Characters might link to locations/maps, but usually loose coupling in JSONB
+            'quests', 
+            'battles', 
+            'library', 
+            'training',
+            'basic_actions',
+            'time_units',
+            'injuries',
+            'triggers',
+            'battle_tags'
+        ];
+
+        let successCount = 0;
+
+        for (const table of tablesOrder) {
+            if (json[table] && Array.isArray(json[table]) && json[table].length > 0) {
+                console.log(`Importing ${table} (${json[table].length} rows)...`);
+                const { error } = await supabase.from(table).upsert(json[table]);
+                if (error) {
+                    console.warn(`Error importing ${table}:`, error.message);
+                } else {
+                    successCount++;
+                }
+            }
+        }
+        
+        CacheService.clearAll(); // Clear cache to reflect new data
+        return { success: true, message: `Восстановлено таблиц: ${successCount}` };
+    } catch (e: any) {
+        console.error("Import failed", e);
+        return { success: false, message: e.message };
+    }
+};
+
+export const cleanUnusedStorage = async () => {
+    try {
+        const bucketName = 'Juul-D-Tracker';
+        
+        // 1. Get all DB references
+        const { data: chars } = await supabase.from('characters').select('data');
+        const { data: locations } = await supabase.from('locations').select('img');
+        const { data: maps } = await supabase.from('maps').select('image_url');
+
+        const usedFiles = new Set<string>();
+
+        chars?.forEach((row: any) => {
+            const url = row.data?.meta?.avatar_url;
+            if (url) {
+                const parts = url.split('/');
+                const filename = parts[parts.length - 1];
+                if (filename) usedFiles.add(filename);
+            }
+        });
+
+        locations?.forEach((row: any) => {
+            if (row.img) {
+                const parts = row.img.split('/');
+                const filename = parts[parts.length - 1];
+                if (filename) usedFiles.add(filename);
+            }
+        });
+
+        maps?.forEach((row: any) => {
+            if (row.image_url) {
+                const parts = row.image_url.split('/');
+                const filename = parts[parts.length - 1];
+                if (filename) usedFiles.add(filename);
+            }
+        });
+
+        // 2. List all files in bucket
+        const { data: files, error: listError } = await supabase.storage.from(bucketName).list();
+        if (listError) throw listError;
+
+        if (!files) return 0;
+
+        // 3. Find unused
+        const filesToDelete = files
+            .filter(f => !usedFiles.has(f.name) && f.name !== '.emptyFolderPlaceholder')
+            .map(f => f.name);
+
+        if (filesToDelete.length === 0) return 0;
+
+        // 4. Delete
+        const { error: deleteError } = await supabase.storage.from(bucketName).remove(filesToDelete);
+        if (deleteError) throw deleteError;
+
+        return filesToDelete.length;
+    } catch (e) {
+        console.error("Cleanup failed", e);
+        throw e;
+    }
 };
