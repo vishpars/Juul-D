@@ -22,16 +22,12 @@ const normalizeAbilities = (abilities: any[]) => {
   const normalizedItems = normalizeBonuses(abilities);
   return normalizedItems.map((ab: any) => ({
     ...ab,
-    // Map 'limits' object to flat limit/limit_unit if present in new JSON
     limit: ab.limit !== undefined ? ab.limit : (ab.limits?.value || 0),
     limit_unit: ab.limit_unit !== undefined ? ab.limit_unit : (ab.limits?.unit || ''),
-    // Map cooldown object
     cd: ab.cd !== undefined ? ab.cd : (ab.cooldown?.value || 0),
     cd_unit: ab.cd_unit !== undefined ? ab.cd_unit : (ab.cooldown?.unit || ''),
-    // Map duration object
     dur: ab.dur !== undefined ? ab.dur : (ab.duration?.value || 0),
     dur_unit: ab.dur_unit !== undefined ? ab.dur_unit : (ab.duration?.unit || ''),
-    // Map description object to flat desc_lore/desc_mech with robust fallbacks
     desc_lore: ab.desc_lore !== undefined ? ab.desc_lore : (ab.desc?.lore || ''),
     desc_mech: ab.desc_mech !== undefined ? ab.desc_mech : (ab.desc?.mech || '')
   }));
@@ -49,14 +45,10 @@ const normalizeItems = (items: any[]) => {
 
 export const getBasicActions = async (): Promise<Ability[]> => {
     try {
-        // Cache Check
         const cached = CacheService.get<Ability[]>('basic_actions');
         if (cached) return cached;
-
         const { data } = await supabase.from('basic_actions').select('*');
         if (!data || data.length === 0) return [];
-        
-        // Map DB rows to Ability objects
         const mapped = data.map((row: any) => ({
             name: row.name || "Action",
             bonuses: row.bonuses || [],
@@ -70,23 +62,16 @@ export const getBasicActions = async (): Promise<Ability[]> => {
             limit: row.limit || 0,
             limit_unit: row.limit_unit || ""
         }));
-
         CacheService.set('basic_actions', mapped);
         return mapped;
     } catch (e) {
-        console.warn("Failed to fetch basic actions", e);
         return [];
     }
 };
 
 export const saveBasicActions = async (actions: Ability[]) => {
-    // Clear cache to force reload next time
     CacheService.remove('basic_actions');
-    
-    // Clear existing table and insert new
     const { error: delError } = await supabase.from('basic_actions').delete().neq('id', 0); 
-    if (delError) console.warn("Error clearing basic actions", delError);
-
     if (actions.length > 0) {
         const { error } = await supabase.from('basic_actions').insert(actions);
         if (error) throw new Error(error.message);
@@ -95,143 +80,30 @@ export const saveBasicActions = async (actions: Ability[]) => {
 
 export const getAllCharacters = async (): Promise<CharacterData[]> => {
   try {
-    // 1. Check Cache First
     const cachedChars = CacheService.get<CharacterData[]>('roster_characters');
-    if (cachedChars) {
-        console.log('Loaded characters from cache');
-        return cachedChars;
-    }
+    if (cachedChars) return cachedChars;
 
-    console.log('Fetching characters from DB...');
-    
-    // Fetch Basic Actions concurrently
     const [charRes, basicActions] = await Promise.all([
         supabase.from('characters').select('*'),
         getBasicActions()
     ]);
-
     const { data, error } = charRes;
-
-    if (error) {
-      console.error("Supabase fetch error (characters):", error);
-      return [];
-    }
-
-    if (!data) return [];
+    if (error || !data) return [];
 
     const validChars: CharacterData[] = [];
-
     data.forEach((row: any) => {
       let charData = row.data || row;
       if (!charData.id) charData.id = row.id;
-
-      if (!charData.profile) {
-          return; 
-      }
+      if (!charData.profile) return; 
       
-      // --- HYDRATION & DEFAULTS ---
-
-      // 1. Profile & Meta
+      // Hydration
       if (!charData.profile.currencies) charData.profile.currencies = { juhe: 0, jumi: 0 };
       if (!charData.meta) charData.meta = { uid: 'system', owner_link: '', avatar_url: '', save_status: true };
       if (!charData.stats) charData.stats = { phys: 0, magic: 0, unique: 0 };
-
-      // Initialize standardized arrays if missing
       if (!charData.passives) charData.passives = [];
-
-      // 2. Extract from "tabs" structure if present (New JSON format)
-      if (charData.tabs) {
-          const tabs = charData.tabs;
-
-          // Equipment Mapping
-          if (tabs.equipment) {
-              charData.equipment = {
-                  wearable: normalizeItems(tabs.equipment.wearable),
-                  usable: normalizeItems(tabs.equipment.weapons), // Map 'weapons' -> 'usable'
-                  inventory: normalizeItems(tabs.equipment.backpack) // Map 'backpack' -> 'inventory'
-              };
-          }
-
-          // Abilities Mapping
-          if (tabs.abilities && Array.isArray(tabs.abilities.schools)) {
-              charData.ability_groups = tabs.abilities.schools.map((school: any) => ({
-                  ...school,
-                  abilities: normalizeAbilities(school.abilities)
-              }));
-          }
-
-          // Passives & Debuffs Mapping - Clear current passives to rebuild from tabs
-          charData.passives = [];
-          
-          if (tabs.passives && Array.isArray(tabs.passives.groups)) {
-              // Map standard passives
-              const pGroups = tabs.passives.groups.map((g: any) => ({
-                  ...g,
-                  group_name: g.group_name || g.name || "Passives", // Ensure name
-                  tags: g.tags || [],
-                  items: normalizeItems(g.abilities || g.items), // Handle if named 'abilities' in JSON
-                  is_flaw_group: false
-              }));
-              charData.passives.push(...pGroups);
-          }
-          
-          if (tabs.debuffs && Array.isArray(tabs.debuffs.groups)) {
-              // Map debuffs
-              const dGroups = tabs.debuffs.groups.map((g: any) => ({
-                  ...g,
-                  group_name: g.group_name || g.name || "Debuffs", // Ensure name
-                  tags: g.tags || [],
-                  items: normalizeItems(g.abilities || g.items),
-                  is_flaw_group: true
-              }));
-              charData.passives.push(...dGroups);
-          }
-
-          // Medcard
-          if (tabs.medcard) {
-              charData.medcard = tabs.medcard;
-          }
-      } 
-      // 2b. Handle case where JSON has root-level 'passives' and 'debuffs' arrays (no 'tabs')
-      else {
-          // If we have a 'debuffs' array at root, merge it into passives
-          if (charData.debuffs && Array.isArray(charData.debuffs)) {
-              const rootDebuffs = charData.debuffs.map((g: any) => ({
-                  ...g,
-                  group_name: g.group_name || g.name || "Debuffs",
-                  tags: g.tags || [],
-                  items: normalizeItems(g.abilities || g.items),
-                  is_flaw_group: true
-              }));
-              charData.passives.push(...rootDebuffs);
-          }
-          
-          // Ensure existing passives have group_name
-          if (Array.isArray(charData.passives)) {
-              charData.passives = charData.passives.map((g: any) => ({
-                  ...g,
-                  group_name: g.group_name || g.name || "Group",
-                  items: normalizeItems(g.items || g.abilities || [])
-              }));
-          }
-      }
-
-      // 3. Final Fallbacks for empty arrays
       if (!charData.equipment) charData.equipment = { usable: [], wearable: [], inventory: [] };
-      if (!Array.isArray(charData.equipment.wearable)) charData.equipment.wearable = [];
-      if (!Array.isArray(charData.equipment.usable)) charData.equipment.usable = [];
-      if (!Array.isArray(charData.equipment.inventory)) charData.equipment.inventory = [];
-
-      if (!Array.isArray(charData.ability_groups)) charData.ability_groups = [];
-      if (!Array.isArray(charData.passives)) charData.passives = [];
-      if (!Array.isArray(charData.resources)) charData.resources = [];
-      
       if (!charData.medcard) charData.medcard = { injuries: [], conditions: [] };
-      if (!Array.isArray(charData.medcard.injuries)) charData.medcard.injuries = [];
-      if (!Array.isArray(charData.medcard.conditions)) charData.medcard.conditions = [];
 
-      // --- INJECT BASIC ACTIONS ---
-      // Check if "Базовые Действия" group already exists. If not, inject it.
       if (basicActions.length > 0) {
           const hasBasicGroup = charData.ability_groups.some((g: any) => g.name === "Базовые Действия");
           if (!hasBasicGroup) {
@@ -239,174 +111,100 @@ export const getAllCharacters = async (): Promise<CharacterData[]> => {
                   name: "Базовые Действия",
                   tags: [],
                   abilities: basicActions,
-                  is_hidden: true // Hidden by default as requested
+                  is_hidden: true
               });
           }
       }
-
       validChars.push(charData as CharacterData);
     });
-
-    // Save to Cache
     CacheService.set('roster_characters', validChars);
-
     return validChars;
   } catch (error) {
-    console.warn("Could not fetch characters.", error);
     return [];
   }
 };
 
-export const syncBattleTags = async (char: CharacterData) => {
-    // 1. Collect all tags from the character sheet
-    const collectedTags = new Set<string>();
+export const saveCharacter = async (char: CharacterData, isAdmin: boolean = false) => {
+  if (!char.id) throw new Error("Critical Error: Character ID missing.");
 
-    const addTags = (tags: string[]) => {
-        if (!tags) return;
-        tags.forEach(t => collectedTags.add(t.toLowerCase().trim()));
-    };
-
-    // Equipment
-    char.equipment.wearable.forEach(i => addTags(i.tags));
-    char.equipment.usable.forEach(i => addTags(i.tags));
-    
-    // Abilities
-    char.ability_groups.forEach(g => {
-        addTags(g.tags);
-        g.abilities.forEach(a => addTags(a.tags));
-    });
-
-    // Passives
-    char.passives.forEach(g => {
-        addTags(g.tags);
-        g.items.forEach(p => addTags(p.tags));
-    });
-
-    const tagsArray = Array.from(collectedTags).filter(Boolean);
-    if (tagsArray.length === 0) return;
-
-    // 2. Fetch existing tags to minimize writes/conflicts
-    // We fetch only tags that match what we have to see what's missing
-    const { data: existingTags } = await supabase
-        .from('battle_tags')
-        .select('tag')
-        .in('tag', tagsArray);
-
-    const existingSet = new Set((existingTags || []).map((r: any) => r.tag));
-    
-    // 3. Filter missing tags
-    const missingTags = tagsArray.filter(t => !existingSet.has(t));
-
-    if (missingTags.length === 0) return;
-
-    // 4. Insert missing tags
-    const rowsToInsert = missingTags.map(tag => ({
-        tag,
-        description: 'Автоматически добавлено'
-    }));
-
-    const { error } = await supabase.from('battle_tags').insert(rowsToInsert).select();
-    if (error) {
-        console.warn("Error auto-syncing tags:", error.message);
-    } else {
-        console.log(`Synced ${missingTags.length} new tags to battle_tags.`);
-        // Invalidate cache if we use it for tags later
-        CacheService.remove('battle_tags');
-    }
-};
-
-export const saveCharacter = async (char: CharacterData) => {
-  if (!char.id) {
-    throw new Error("Critical Error: Character ID missing before save attempt.");
-  }
-
-  // Update Cache Immediately
-  const cached = CacheService.get<CharacterData[]>('roster_characters') || [];
-  const index = cached.findIndex(c => c.id === char.id);
-  if (index !== -1) {
-      cached[index] = char;
-  } else {
-      cached.push(char);
-  }
-  CacheService.set('roster_characters', cached);
-
-  // Sync Tags logic
-  syncBattleTags(char).catch(err => console.error("Tag sync failed silently:", err));
-
-  // DB Save
   const payload = { ...char };
+  // Clean internal runtime flags
   // @ts-ignore
   delete payload.identity; 
   // @ts-ignore
   delete payload.med_card;
-  // @ts-ignore
-  delete payload.tabs; // We save the flattened version to avoid confusion or double data
-  // @ts-ignore
-  delete payload.debuffs; // We save debuffs merged into passives
 
-  const { data, error } = await supabase
-    .from('characters')
-    .upsert({ 
-      id: char.id, 
-      data: payload 
-    })
-    .select();
+  try {
+      // 1. Working copy
+      const { error } = await supabase.from('characters').upsert({ id: char.id, data: payload });
+      if (error) throw error;
 
-  if (error) {
-    console.error("Supabase Save Error:", error);
+      // 2. Original copy (Golden backup)
+      if (isAdmin) {
+          const { error: primeError } = await supabase.from('characters_prime').upsert({ id: char.id, data: payload });
+          if (primeError) console.error("Prime Save Failure:", primeError.message);
+      }
+
+      // Update Cache
+      const cached = CacheService.get<CharacterData[]>('roster_characters') || [];
+      const index = cached.findIndex(c => c.id === char.id);
+      if (index !== -1) cached[index] = char;
+      else cached.push(char);
+      CacheService.set('roster_characters', cached);
+
+      return true;
+  } catch (error: any) {
     throw new Error(`Database Error: ${error.message}`);
   }
-
-  return true;
 };
 
 export const deleteCharacter = async (id: string) => {
-  // Update Cache Immediately
-  const cached = CacheService.get<CharacterData[]>('roster_characters') || [];
-  const updated = cached.filter(c => c.id !== id);
-  CacheService.set('roster_characters', updated);
+  try {
+      // Find minions
+      const { data: minions } = await supabase.from('characters').select('id').eq('data->meta->>master_id', id);
+      const allIds = [id, ...(minions?.map(m => m.id) || [])];
 
-  const { error } = await supabase.from('characters').delete().eq('id', id);
-  if (error) throw new Error(error.message);
+      // 1. Cleanup training (Foreign Key fix)
+      await supabase.from('training').delete().in('char_id', allIds);
+      
+      // 2. Cleanup prime
+      await supabase.from('characters_prime').delete().in('id', allIds);
 
-  const { error: cascadeError } = await supabase
-    .from('characters')
-    .delete()
-    .eq('data->meta->>master_id', id);
+      // 3. Delete minions
+      if (minions && minions.length > 0) {
+          await supabase.from('characters').delete().in('id', minions.map(m => m.id));
+      }
 
-  if (cascadeError) console.error("Failed to cascade delete minions", cascadeError);
+      // 4. Finally delete the main character
+      const { error } = await supabase.from('characters').delete().eq('id', id);
+      if (error) throw error;
+
+      // Update Cache
+      const cached = CacheService.get<CharacterData[]>('roster_characters') || [];
+      CacheService.set('roster_characters', cached.filter(c => !allIds.includes(c.id)));
+  } catch (e: any) {
+      throw new Error(`Deletion Failed: ${e.message}`);
+  }
 };
 
 export const uploadAvatar = async (file: File): Promise<string> => {
-  const MAX_SIZE = 10 * 1024 * 1024;
-  if (file.size > MAX_SIZE) throw new Error("Файл слишком большой. Максимум 10 МБ.");
-
   const fileExt = file.name.split('.').pop();
   const fileName = `avatar_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-  const filePath = `${fileName}`;
-
-  const { error: uploadError } = await supabase.storage.from('Juul-D-Tracker').upload(filePath, file);
+  const { error: uploadError } = await supabase.storage.from('Juul-D-Tracker').upload(fileName, file);
   if (uploadError) throw new Error("Ошибка при загрузке изображения.");
-
-  const { data } = supabase.storage.from('Juul-D-Tracker').getPublicUrl(filePath);
+  const { data } = supabase.storage.from('Juul-D-Tracker').getPublicUrl(fileName);
   return data.publicUrl;
 };
 
 export const getGlobalTriggers = async (): Promise<Record<string, string>> => {
-  try {
-    const cached = CacheService.get<Record<string, string>>('global_triggers');
-    if (cached) return cached;
-
-    const { data } = await supabase.from('triggers').select('tag, label');
-    if (!data || data.length === 0) return { "Always": "Пассивно / Всегда" };
-    const map: Record<string, string> = {};
-    data.forEach((row: any) => { map[row.tag] = row.label; });
-    
-    CacheService.set('global_triggers', map);
-    return map;
-  } catch (error) {
-    return { "Always": "Пассивно / Всегда" };
-  }
+  const cached = CacheService.get<Record<string, string>>('global_triggers');
+  if (cached) return cached;
+  const { data } = await supabase.from('triggers').select('tag, label');
+  if (!data || data.length === 0) return { "Always": "Пассивно / Всегда" };
+  const map: Record<string, string> = {};
+  data.forEach((row: any) => { map[row.tag] = row.label; });
+  CacheService.set('global_triggers', map);
+  return map;
 };
 
 export const saveGlobalTriggers = async (triggers: Record<string, string>) => {
@@ -416,18 +214,12 @@ export const saveGlobalTriggers = async (triggers: Record<string, string>) => {
 };
 
 export const getInjuries = async (): Promise<InjuryDefinition[]> => {
-  try {
-    const cached = CacheService.get<InjuryDefinition[]>('injuries');
-    if (cached) return cached;
-
-    const { data } = await supabase.from('injuries').select('*').order('type').order('value');
-    if (!data || data.length === 0) return DEFAULT_INJURIES;
-    
-    CacheService.set('injuries', data);
-    return data as InjuryDefinition[];
-  } catch (error) {
-    return DEFAULT_INJURIES;
-  }
+  const cached = CacheService.get<InjuryDefinition[]>('injuries');
+  if (cached) return cached;
+  const { data } = await supabase.from('injuries').select('*').order('type').order('value');
+  if (!data || data.length === 0) return DEFAULT_INJURIES;
+  CacheService.set('injuries', data);
+  return data as InjuryDefinition[];
 };
 
 export const saveInjuries = async (injuries: InjuryDefinition[]) => {
@@ -436,19 +228,13 @@ export const saveInjuries = async (injuries: InjuryDefinition[]) => {
 };
 
 export const getTimeUnits = async (): Promise<TimeUnit[]> => {
-  try {
-    const cached = CacheService.get<TimeUnit[]>('time_units');
-    if (cached) return cached;
-
-    const { data } = await supabase.from('time_units').select('tag, label, battle');
-    if (!data || data.length === 0) return DEFAULT_TIME_UNITS;
-    const mapped = data.map((r: any) => ({ tag: r.tag || r.label, label: r.label, battle: r.battle || false }));
-    
-    CacheService.set('time_units', mapped);
-    return mapped;
-  } catch (error) {
-    return DEFAULT_TIME_UNITS;
-  }
+  const cached = CacheService.get<TimeUnit[]>('time_units');
+  if (cached) return cached;
+  const { data } = await supabase.from('time_units').select('tag, label, battle');
+  if (!data || data.length === 0) return DEFAULT_TIME_UNITS;
+  const mapped = data.map((r: any) => ({ tag: r.tag || r.label, label: r.label, battle: r.battle || false }));
+  CacheService.set('time_units', mapped);
+  return mapped;
 };
 
 export const saveTimeUnits = async (units: TimeUnit[]) => {
@@ -457,194 +243,143 @@ export const saveTimeUnits = async (units: TimeUnit[]) => {
   if (rows.length > 0) await supabase.from('time_units').upsert(rows, { onConflict: 'tag' });
 };
 
-// --- TAGS ---
-
 export const getBattleTags = async (): Promise<BattleTag[]> => {
-    try {
-        const cached = CacheService.get<BattleTag[]>('battle_tags');
-        if (cached) return cached;
-
-        const { data } = await supabase.from('battle_tags').select('*').order('tag');
-        if (!data) return [];
-        
-        CacheService.set('battle_tags', data);
-        return data;
-    } catch (e) {
-        console.error("Failed to fetch battle tags", e);
-        return [];
-    }
+    const cached = CacheService.get<BattleTag[]>('battle_tags');
+    if (cached) return cached;
+    const { data } = await supabase.from('battle_tags').select('*').order('tag');
+    if (!data) return [];
+    CacheService.set('battle_tags', data);
+    return data;
 };
 
 export const saveBattleTag = async (tag: BattleTag) => {
-    const { error } = await supabase.from('battle_tags').upsert(tag);
-    if (error) throw new Error(error.message);
+    await supabase.from('battle_tags').upsert(tag);
     CacheService.remove('battle_tags');
 };
 
 export const deleteBattleTag = async (tag: string) => {
-    const { error } = await supabase.from('battle_tags').delete().eq('tag', tag);
-    if (error) throw new Error(error.message);
+    await supabase.from('battle_tags').delete().eq('tag', tag);
     CacheService.remove('battle_tags');
 };
 
-// --- TRAINING ---
-
 export const getTrainingData = async (): Promise<TrainingRecord[]> => {
-    const { data, error } = await supabase.from('training').select('*');
-    if (error) {
-        console.error("Failed to fetch training data", error);
-        return [];
-    }
+    const { data } = await supabase.from('training').select('*');
     return data || [];
 };
 
 export const saveTrainingData = async (charId: string, limits: string, day: string, values: number[]) => {
-    // First, fetch existing record to preserve other days
     const { data: existing } = await supabase.from('training').select('*').eq('char_id', charId).single();
-    
     const currentData = existing?.current || {};
     currentData[day] = values;
-
-    const payload = {
-        char_id: charId,
-        limits,
-        current: currentData
-    };
-
-    const { error } = await supabase.from('training').upsert(payload);
-    if (error) throw new Error(error.message);
+    await supabase.from('training').upsert({ char_id: charId, limits, current: currentData });
 };
 
-// --- SYSTEM ADMIN TOOLS ---
+// Added missing system utility exports
 
+/**
+ * Fetches all tables and triggers a JSON file download in the browser.
+ */
 export const exportFullBackup = async () => {
     try {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const tables = ['characters', 'battles', 'lore_articles', 'lore_categories', 'maps', 'locations', 'quests', 'library', 'training', 'basic_actions', 'time_units', 'injuries', 'triggers', 'battle_tags'];
-        const backupData: Record<string, any> = {};
+        const [chars, trigs, injuries, timeUnits, actions, tags, training] = await Promise.all([
+            supabase.from('characters').select('*'),
+            supabase.from('triggers').select('*'),
+            supabase.from('injuries').select('*'),
+            supabase.from('time_units').select('*'),
+            supabase.from('basic_actions').select('*'),
+            supabase.from('battle_tags').select('*'),
+            supabase.from('training').select('*')
+        ]);
 
-        for (const table of tables) {
-            const { data, error } = await supabase.from(table).select('*');
-            if (!error && data) {
-                backupData[table] = data;
-            }
-        }
+        const backupData = {
+            characters: chars.data || [],
+            triggers: trigs.data || [],
+            injuries: injuries.data || [],
+            time_units: timeUnits.data || [],
+            basic_actions: actions.data || [],
+            battle_tags: tags.data || [],
+            training: training.data || [],
+            exported_at: new Date().toISOString()
+        };
 
         const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `juul_d_full_backup_${timestamp}.json`;
+        a.download = `juul_d_backup_${new Date().toISOString().split('T')[0]}.json`;
         a.click();
         URL.revokeObjectURL(url);
-        return true;
-    } catch (e) {
-        console.error("Backup failed", e);
-        throw e;
+    } catch (e: any) {
+        throw new Error("Failed to export: " + e.message);
     }
 };
 
-export const importFullBackup = async (file: File): Promise<{success: boolean, message: string}> => {
+/**
+ * Parses a JSON backup file and upserts the data into respective tables.
+ */
+export const importFullBackup = async (file: File): Promise<{ success: boolean; message: string }> => {
     try {
         const text = await file.text();
-        const json = JSON.parse(text);
-        
-        // Define import order to respect foreign keys (Categories before Items)
-        const tablesOrder = [
-            'lore_categories', 
-            'lore_articles', 
-            'maps', 
-            'locations', 
-            'characters', // Characters might link to locations/maps, but usually loose coupling in JSONB
-            'quests', 
-            'battles', 
-            'library', 
-            'training',
-            'basic_actions',
-            'time_units',
-            'injuries',
-            'triggers',
-            'battle_tags'
-        ];
+        const data = JSON.parse(text);
 
-        let successCount = 0;
+        if (data.characters && data.characters.length > 0) await supabase.from('characters').upsert(data.characters);
+        if (data.triggers && data.triggers.length > 0) await supabase.from('triggers').upsert(data.triggers);
+        if (data.injuries && data.injuries.length > 0) await supabase.from('injuries').upsert(data.injuries);
+        if (data.time_units && data.time_units.length > 0) await supabase.from('time_units').upsert(data.time_units);
+        if (data.basic_actions && data.basic_actions.length > 0) await supabase.from('basic_actions').upsert(data.basic_actions);
+        if (data.battle_tags && data.battle_tags.length > 0) await supabase.from('battle_tags').upsert(data.battle_tags);
+        if (data.training && data.training.length > 0) await supabase.from('training').upsert(data.training);
 
-        for (const table of tablesOrder) {
-            if (json[table] && Array.isArray(json[table]) && json[table].length > 0) {
-                console.log(`Importing ${table} (${json[table].length} rows)...`);
-                const { error } = await supabase.from(table).upsert(json[table]);
-                if (error) {
-                    console.warn(`Error importing ${table}:`, error.message);
-                } else {
-                    successCount++;
-                }
-            }
-        }
-        
-        CacheService.clearAll(); // Clear cache to reflect new data
-        return { success: true, message: `Восстановлено таблиц: ${successCount}` };
+        // Clear local cache to ensure fresh data
+        CacheService.clearAll();
+
+        return { success: true, message: "Импорт завершен успешно. Кеш очищен." };
     } catch (e: any) {
-        console.error("Import failed", e);
         return { success: false, message: e.message };
     }
 };
 
-export const cleanUnusedStorage = async () => {
+/**
+ * Scans storage bucket and removes files not referenced in any database table.
+ */
+export const cleanUnusedStorage = async (): Promise<number> => {
     try {
-        const bucketName = 'Juul-D-Tracker';
-        
-        // 1. Get all DB references
-        const { data: chars } = await supabase.from('characters').select('data');
-        const { data: locations } = await supabase.from('locations').select('img');
-        const { data: maps } = await supabase.from('maps').select('image_url');
-
-        const usedFiles = new Set<string>();
-
-        chars?.forEach((row: any) => {
-            const url = row.data?.meta?.avatar_url;
-            if (url) {
-                const parts = url.split('/');
-                const filename = parts[parts.length - 1];
-                if (filename) usedFiles.add(filename);
-            }
-        });
-
-        locations?.forEach((row: any) => {
-            if (row.img) {
-                const parts = row.img.split('/');
-                const filename = parts[parts.length - 1];
-                if (filename) usedFiles.add(filename);
-            }
-        });
-
-        maps?.forEach((row: any) => {
-            if (row.image_url) {
-                const parts = row.image_url.split('/');
-                const filename = parts[parts.length - 1];
-                if (filename) usedFiles.add(filename);
-            }
-        });
-
-        // 2. List all files in bucket
-        const { data: files, error: listError } = await supabase.storage.from(bucketName).list();
+        // 1. Get all file names in bucket
+        const { data: files, error: listError } = await supabase.storage.from('Juul-D-Tracker').list();
         if (listError) throw listError;
+        if (!files || files.length === 0) return 0;
 
-        if (!files) return 0;
+        // 2. Get all referenced URLs from DB
+        const [{ data: chars }, { data: maps }, { data: locs }] = await Promise.all([
+            supabase.from('characters').select('data'),
+            supabase.from('maps').select('image_url'),
+            supabase.from('locations').select('img')
+        ]);
 
-        // 3. Find unused
-        const filesToDelete = files
-            .filter(f => !usedFiles.has(f.name) && f.name !== '.emptyFolderPlaceholder')
-            .map(f => f.name);
+        const usedUrls = new Set<string>();
+        chars?.forEach((c: any) => {
+            if (c.data?.meta?.avatar_url) usedUrls.add(c.data.meta.avatar_url);
+        });
+        maps?.forEach((m: any) => usedUrls.add(m.image_url));
+        locs?.forEach((l: any) => usedUrls.add(l.img));
 
-        if (filesToDelete.length === 0) return 0;
+        // 3. Find files not in referenced URLs set
+        const filesToDelete: string[] = [];
+        files.forEach(file => {
+            const publicUrl = supabase.storage.from('Juul-D-Tracker').getPublicUrl(file.name).data.publicUrl;
+            if (!usedUrls.has(publicUrl)) {
+                filesToDelete.push(file.name);
+            }
+        });
 
-        // 4. Delete
-        const { error: deleteError } = await supabase.storage.from(bucketName).remove(filesToDelete);
-        if (deleteError) throw deleteError;
+        // 4. Perform deletion
+        if (filesToDelete.length > 0) {
+            const { error: delError } = await supabase.storage.from('Juul-D-Tracker').remove(filesToDelete);
+            if (delError) throw delError;
+        }
 
         return filesToDelete.length;
-    } catch (e) {
-        console.error("Cleanup failed", e);
-        throw e;
+    } catch (e: any) {
+        throw new Error("Cleanup failed: " + e.message);
     }
 };

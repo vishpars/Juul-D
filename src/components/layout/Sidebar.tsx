@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { LayoutGrid, Users, Sword, Library, LogOut, Hexagon, ChevronLeft, ChevronRight, X, RefreshCw, AlertCircle } from 'lucide-react';
+import { LayoutGrid, Users, Sword, Library, LogOut, Hexagon, ChevronLeft, ChevronRight, X, RefreshCw, AlertCircle, KeyRound, Check } from 'lucide-react';
 import { NavItem } from '../../types';
 import { CacheService } from '../../utils/cache';
 
@@ -22,10 +22,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isMobileOpen,
   closeMobileSidebar
 }) => {
-  const { signOut, user, isAdmin } = useAuth();
+  const { signOut, user, isAdmin, updatePassword } = useAuth();
   const navigate = useNavigate();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  
+  // Password Change State
+  const [showPasswordInput, setShowPasswordInput] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [passMessage, setPassMessage] = useState<string | null>(null);
 
   const navItems: NavItem[] = [
     { label: 'Распутье', path: '/', icon: LayoutGrid },
@@ -73,6 +78,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const handleLinkClick = () => {
     if (window.innerWidth < 1150) closeMobileSidebar();
   }
+
+  const handleChangePassword = async () => {
+      if (newPassword.length < 6) {
+          setPassMessage("Мин. 6 символов");
+          return;
+      }
+      try {
+          await updatePassword(newPassword);
+          setPassMessage("Успешно!");
+          setTimeout(() => {
+              setShowPasswordInput(false);
+              setNewPassword("");
+              setPassMessage(null);
+          }, 1500);
+      } catch (e: any) {
+          setPassMessage("Ошибка");
+          console.error(e);
+      }
+  };
 
   // Helper to split label for styling
   const renderLabel = (label: string) => {
@@ -206,6 +230,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
                  {isRefreshing ? 'Синхронизация...' : (refreshError || 'Обновить Базы')}
              </span>
           </button>
+
+          {/* Change Password Button */}
+          {user && user.role !== 'guest' && (
+              <div className="relative">
+                  <button 
+                    onClick={() => setShowPasswordInput(!showPasswordInput)}
+                    className={`
+                        flex items-center gap-4 px-3 py-2 rounded-lg text-slate-500 hover:text-amber-400 hover:bg-amber-900/10 border border-transparent hover:border-amber-500/30 transition-all w-full
+                        ${isDesktopCollapsed ? 'justify-center' : ''}
+                    `}
+                    title="Сменить Пароль"
+                  >
+                    <KeyRound className="w-5 h-5 min-w-[20px] shrink-0" />
+                    <span className={`font-fantasy tracking-wider text-sm whitespace-nowrap transition-all duration-300 uppercase ${isDesktopCollapsed ? 'hidden' : 'block'}`}>
+                        Пароль
+                    </span>
+                  </button>
+                  
+                  {/* Password Input Overlay */}
+                  {showPasswordInput && !isDesktopCollapsed && (
+                      <div className="absolute bottom-full mb-2 left-0 w-full bg-slate-900 border border-violet-500/30 p-2 rounded shadow-xl animate-fadeIn z-50">
+                          {passMessage ? (
+                              <div className={`text-xs text-center font-bold ${passMessage === 'Успешно!' ? 'text-emerald-400' : 'text-red-400'}`}>{passMessage}</div>
+                          ) : (
+                              <div className="flex gap-1">
+                                  <input 
+                                    type="password" 
+                                    placeholder="Новый пароль" 
+                                    className="w-full bg-black/50 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:border-violet-500 outline-none"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                  />
+                                  <button onClick={handleChangePassword} className="bg-violet-600 text-white p-1 rounded hover:bg-violet-500"><Check size={14} /></button>
+                              </div>
+                          )}
+                      </div>
+                  )}
+              </div>
+          )}
 
           {/* Logout */}
           <button 

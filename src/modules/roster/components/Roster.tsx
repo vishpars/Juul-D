@@ -113,7 +113,7 @@ const Roster: React.FC<Props> = ({ characters, onSelect, onCreate, onOpenSetting
         return {
           tab: "text-slate-400 drop-shadow-[0_0_8px_rgba(148,163,184,0.5)]",
           border: "border-slate-500/30",
-          glow: "shadow-[0_0_20px_rgba(148,163,184,0.1)]",
+          glow: "shadow-[0_0_10px_rgba(148,163,184,0.1)]",
           bg: "bg-slate-900/20",
           text: "text-slate-300",
           glowColor: "from-slate-800/30"
@@ -187,7 +187,6 @@ const Roster: React.FC<Props> = ({ characters, onSelect, onCreate, onOpenSetting
       
       {/* Background Image Layer */}
       <div 
-        // здесь задний фон
         className="absolute inset-0 bg-cover bg-center opacity-40 z-0 pointer-events-none mix-blend-screen"
         style={{ 
             backgroundImage: `url(${rosterBg})`,
@@ -218,7 +217,7 @@ const Roster: React.FC<Props> = ({ characters, onSelect, onCreate, onOpenSetting
                                 e.stopPropagation();
                                 handleSlashClick();
                             }}
-                            className={`${isBloodMode ? 'text-red-600' : 'text-violet-500'} cursor-pointer hover:brightness-150 transition-colors select-none active:scale-90 inline-block`}
+                            className={`px-1 rounded-sm ${isBloodMode ? 'text-red-600' : 'text-violet-500'} cursor-pointer hover:brightness-150 transition-colors select-none active:scale-90 inline-block`}
                             >
                             //
                             </span> 
@@ -395,22 +394,22 @@ const Roster: React.FC<Props> = ({ characters, onSelect, onCreate, onOpenSetting
       </div>
 
       {/* [DIALECT] Easter Egg Input Window */}
-      {isInputMode && !isDialectUnlocked && !isBloodMode && (
-          <div className="absolute bottom-4 left-4 md:left-1/2 md:-translate-x-1/2 md:bottom-8 z-[100] animate-fadeIn w-[calc(100%-2rem)] max-w-sm pointer-events-none">
-              <div className="bg-black/90 border border-violet-900 rounded-lg p-3 shadow-[0_0_20px_rgba(139,92,246,0.3)] backdrop-blur-sm pointer-events-auto relative">
-                <div className="flex items-center gap-2 mb-1 justify-between">
+      {isInputMode && (
+          <div className="fixed inset-0 md:absolute md:inset-auto md:bottom-4 md:left-1/2 md:-translate-x-1/2 md:bottom-8 z-[100] animate-fadeIn flex items-center justify-center pointer-events-none p-4">
+              <div className="bg-black/95 border border-violet-900 rounded-lg p-4 shadow-[0_0_40px_rgba(139,92,246,0.4)] backdrop-blur-md pointer-events-auto w-full max-w-sm relative">
+                <div className="flex items-center gap-2 mb-2 justify-between">
                   <div className="flex items-center gap-2">
                       <Terminal size={14} className="text-violet-500 animate-pulse"/>
                       <span className="text-[10px] font-mono text-violet-300 uppercase tracking-widest">Input Sequence</span>
                   </div>
                 </div>
-                <div className="bg-slate-900/50 border border-slate-800 rounded p-2 h-10 flex items-center justify-center">
-                    <span className="font-serif text-lg text-violet-400 tracking-[0.2em] uppercase drop-shadow-[0_0_5px_rgba(167,139,250,0.8)]">
+                <div className="bg-slate-950 border border-slate-800 rounded p-3 min-h-[3rem] flex items-center justify-center overflow-hidden">
+                    <span className="font-serif text-sm md:text-base text-violet-400 tracking-[0.1em] md:tracking-[0.2em] uppercase drop-shadow-[0_0_5px_rgba(167,139,250,0.8)] break-all text-center">
                       {inputBuffer || <span className="opacity-20">_ _ _ _ _ _</span>}
                     </span>
                 </div>
-                <div className="text-center mt-1">
-                    <span className="text-[9px] text-slate-600 uppercase">Tap title letters</span>
+                <div className="text-center mt-2">
+                    <span className="text-[9px] text-slate-600 uppercase font-bold tracking-widest">Tap title letters & slashes</span>
                 </div>
               </div>
           </div>

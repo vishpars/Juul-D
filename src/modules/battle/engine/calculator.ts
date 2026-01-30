@@ -69,17 +69,49 @@ export const getMatchingFactors = (
     const factors: { name: string, bonus: number, type: 'passive' | 'effect' | 'item', tags?: string[], desc?: string, mech?: string }[] = [];
     const normalizedAbilityTags = normalizeTags(abilityTags);
 
+    // Context Detection based on Action Tags
+    const isDefensiveAction = normalizedAbilityTags.some(t => 
+        ['defense', 'block', 'dodge', 'protection', 'parry', 'защита', 'блок', 'уклонение', 'парирование', 'def'].includes(t)
+    );
+    const isOffensiveAction = normalizedAbilityTags.some(t => 
+        ['attack', 'hit', 'damage', 'melee', 'ranged', 'offense', 'атака', 'удар', 'урон', 'ближний', 'дальний'].includes(t)
+    );
+
     // 1. Passives (Use FLAT list which already has inherited tags from Supabase load)
     if (participant.flat_passives) {
         participant.flat_passives.forEach(pas => {
-            const isAlways = !pas.trigger || pas.trigger.toLowerCase() === 'always' || pas.trigger === 'Пассивно / Всегда';
-            // We use pas.tags which now includes group tags
-            if (isAlways && hasTagOverlap(normalizeTags(pas.tags), normalizedAbilityTags)) {
+            const trigger = (pas.trigger || 'ALWAYS').toUpperCase();
+            
+            // Logic: Include ALWAYS, plus conditional triggers if tags match
+            // "ALWAYS" - Base stat mods
+            // "ABILITY" - Mods specific to abilities (e.g. "+5 to Fire spells")
+            // "ON_HIT" - Mods that apply when hitting (e.g. "+2 Damage")
+            // "ON_DEFENSE" - Mods when defending (e.g. "+2 Block")
+            
+            const isRelevantTrigger = 
+                trigger === 'ALWAYS' || 
+                trigger === 'PASSIVE' || 
+                trigger === 'ПАССИВНО / ВСЕГДА' ||
+                trigger === 'ABILITY' ||
+                trigger === 'ON_HIT' ||
+                trigger === 'ON_DEFENSE';
+
+            if (isRelevantTrigger && hasTagOverlap(normalizeTags(pas.tags), normalizedAbilityTags)) {
+                
+                // Context Check: Prevent defensive passives triggering on attacks and vice versa
+                if (trigger === 'ON_DEFENSE' && !isDefensiveAction) return; 
+                if (trigger === 'ON_HIT' && !isOffensiveAction) return;
+
+                let typeLabel = 'passive';
+                if (trigger === 'ABILITY') typeLabel = 'ability_mod';
+                if (trigger === 'ON_HIT') typeLabel = 'on_hit';
+                if (trigger === 'ON_DEFENSE') typeLabel = 'on_defense';
+
                 factors.push({ 
                     name: pas.name, 
                     bonus: sumBonuses(pas.bonuses), 
                     type: 'passive', 
-                    tags: pas.tags,
+                    tags: [...(pas.tags || []), typeLabel],
                     mech: pas.desc_mech 
                 });
             }
@@ -216,8 +248,24 @@ export const calculateSequenceTree = (
         const weapon = actor.equipment.usable.find(w => w._id === weaponId || (w.id && w.id === weaponId) || w.name === weaponId);
 
         const bonusVal = calculateTotalBonus(actor, ability, weapon, injuryRules, excludedModifiers);
+        
+        // --- NEW: EXTRACT PASSIVE NAMES FOR LOGGING ---
+        const externalFactors = getMatchingFactors(actor, ability.tags);
+        const activeModifiers = externalFactors
+            .filter(f => !excludedModifiers.includes(f.name))
+            .filter(f => {
+                // Filter for triggers that should be displayed in the chain
+                // We specifically want 'ability_mod', 'on_hit', 'on_defense' or anything with explicit mechanics
+                return f.tags?.some(t => ['ability_mod', 'on_hit', 'on_defense'].includes(t)) || f.mech;
+            })
+            .map(f => {
+                const mechStr = f.mech ? `(${f.mech})` : '';
+                return `${actor.profile.name}: ${f.name}${mechStr}`;
+            });
+        // ----------------------------------------------
+
         const sign = bonusVal >= 0 ? '+' : '';
-        const weaponStr = weapon && weapon.name ? ` [${weapon.name}]` : ''; // FIX: Ensure weapon.name exists
+        const weaponStr = weapon && weapon.name ? ` [${weapon.name}]` : ''; 
         const nameStr = `${ability.name}${weaponStr}`;
         const diceStr = getDiceString(actor.profile.level);
 
@@ -231,7 +279,8 @@ export const calculateSequenceTree = (
             dice: diceStr, 
             isForm,
             isBuff,
-            mechanics: ability.desc_mech
+            mechanics: ability.desc_mech,
+            modifiers: activeModifiers // Array of strings like "Name: Passive(Effect)"
         };
   };
 
@@ -266,25 +315,47 @@ export const calculateSequenceTree = (
       const namesPart = dataList.map(d => `${d.actorName}: ${d.name}`).join(' + ');
       const bonusesPart = dataList.map(d => (d.isForm || d.isBuff) ? '-' : `${d.dice}${d.bonus}`).join('/');
       
-      return `[${namesPart}(${bonusesPart})]`;
+      let comboString = `[${namesPart}(${bonusesPart})]`;
+
+      // Collect all triggered modifiers from all actions in sequence
+      const allModifiers: string[] = [];
+      dataList.forEach(d => {
+          if (d.modifiers && d.modifiers.length > 0) {
+              allModifiers.push(...d.modifiers);
+          }
+      });
+
+      // Append modifiers at the very end of the combo string
+      if (allModifiers.length > 0) {
+          comboString += ` - ${allModifiers.join(' - ')}`;
+      }
+      
+      return comboString;
     }
 
     if (node.type === 'action') {
         const data = getActionData(node.data?.charId || '', node.data?.abilityId || '', node.data?.weaponId, node.data?.excludedModifiers);
         if (!data) return '[Unknown Action]';
         
+        let mainString = '';
+
         if (data.isForm) {
             // Form format: <Character: Name (Mechanics)>
-            return `<${data.actorName}: ${data.name} (${data.mechanics || ''})>`;
-        }
-        
-        if (data.isBuff) {
+            mainString = `<${data.actorName}: ${data.name} (${data.mechanics || ''})>`;
+        } else if (data.isBuff) {
             // Buff format: (Character: Name (Mechanics))
-            return `(${data.actorName}: ${data.name} (${data.mechanics || ''}))`;
+            mainString = `(${data.actorName}: ${data.name} (${data.mechanics || ''}))`;
+        } else {
+            // Attack format: Character: Name(Dice+Bonus)
+            mainString = `${data.actorName}: ${data.name}(${data.dice}${data.bonus})`;
         }
 
-        // Attack format: Character: Name(Dice+Bonus)
-        return `${data.actorName}: ${data.name}(${data.dice}${data.bonus})`;
+        // Append triggered passives
+        if (data.modifiers && data.modifiers.length > 0) {
+            mainString += ' - ' + data.modifiers.join(' - ');
+        }
+
+        return mainString;
     }
 
     return '';

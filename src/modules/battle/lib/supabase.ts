@@ -103,10 +103,25 @@ const normalizeAbilities = (abilities: any[]) => {
 const normalizeTrigger = (trigger: string): string => {
     if (!trigger) return 'ALWAYS';
     const t = trigger.toUpperCase().trim();
+    
+    // Combat Start
     if (t.includes('START') || t.includes('НАЧАЛО')) return 'COMBAT_START';
+    
+    // On Hit / Attack
     if (t.includes('HIT') || t.includes('ПОПАДАН') || t.includes('УДАР')) return 'ON_HIT';
+    
+    // On Kill
     if (t.includes('KILL') || t.includes('УБИЙСТВ')) return 'ON_KILL';
+    
+    // On Defense
+    if (t.includes('DEFENSE') || t.includes('ЗАЩИТ')) return 'ON_DEFENSE';
+    
+    // From Ability
+    if (t.includes('ABILITY') || t.includes('СПОСОБН')) return 'ABILITY';
+    
+    // Always / Passive
     if (t.includes('ALWAYS') || t.includes('ВСЕГДА') || t.includes('ПАССИВ')) return 'ALWAYS';
+    
     return t; // Fallback to original if no match
 }
 

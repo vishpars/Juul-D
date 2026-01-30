@@ -72,6 +72,7 @@ export interface Ability {
   dur_unit: string;
   limit?: number;
   limit_unit?: string;
+  is_blocked?: boolean; // New field for locking abilities
 }
 
 export interface AbilityGroup {
@@ -93,6 +94,9 @@ export interface Passive {
   cd_unit: string;
   dur: number;
   dur_unit: string;
+  is_blocked?: boolean; // New field for locking passives
+  // trigger_ability_id is used for linking passives/debuffs to specific abilities
+  trigger_ability_id?: string;
 }
 
 export interface PassiveGroup {

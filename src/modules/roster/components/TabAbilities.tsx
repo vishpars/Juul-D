@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
-import { CharacterData, TimeUnit, StatType, Bonus } from '../types';
+import { CharacterData, TimeUnit, StatType, Bonus, Ability } from '../types';
 import { Card, StyledInput, StyledTextarea, Button, BonusInput, TagInput, TimeInput, TabRadarCharts, CommonTagToggles } from './Shared';
-import { Plus, Trash2, Clock, Hourglass, ChevronDown, ChevronRight, Eye, EyeOff, Hash, Check, X } from 'lucide-react';
+import { Plus, Trash2, Clock, Hourglass, ChevronDown, ChevronRight, Eye, EyeOff, Hash, Check, X, Lock, Unlock } from 'lucide-react';
 import { DisplayMode } from '../App';
 /* [DIALECT] */ import { useDialect } from '../dialect_module/DialectContext';
 
@@ -51,7 +51,7 @@ const TabAbilities: React.FC<Props> = ({ character, isEditMode, displayMode, onC
     
     group.abilities.push({ 
       name: "Новый Навык", bonuses: [], tags: [], desc_lore: "", desc_mech: "",
-      cd: 0, cd_unit: "", dur: 0, dur_unit: "", limit: 0, limit_unit: ""
+      cd: 0, cd_unit: "", dur: 0, dur_unit: "", limit: 0, limit_unit: "", is_blocked: false
     });
     
     next[gIdx] = group;
@@ -62,7 +62,28 @@ const TabAbilities: React.FC<Props> = ({ character, isEditMode, displayMode, onC
     const next = [...ability_groups];
     // Deep clone logic
     const group = { ...next[gIdx] };
+    // Clone abilities array
     group.abilities = [...group.abilities];
+    
+    // NOTE: sorting blocked items to the bottom happens during render, 
+    // but here we must find the correct ability in the original array based on index
+    // However, the indices passed here (aIdx) come from the RENDERED list (which might be sorted differently).
+    // This is tricky. To solve this, we should rely on mapping. But since we don't have unique IDs for abilities guaranteed, 
+    // we should trust the array order passed from the parent if we don't sort inside the state.
+    // 
+    // Wait, if we sort for display, we mess up the index mapping for updates. 
+    // Strategy: We will sort for display, but attach the original index to the mapped item to pass back here.
+    
+    // Actually, simpler: Let's assume the state itself should be sorted? No, that causes jumping UI.
+    // Let's rely on the fact that `map` provides the index. 
+    
+    // REFACTOR: We need to find the ability by reference or ID.
+    // Since we don't have stable IDs in the type def yet (it's optional in some contexts), 
+    // let's pass the ability object itself if possible, OR, handle sorting carefully.
+    
+    // For this implementation: We will sort the display list.
+    // To update correctly, we need the index in the ORIGINAL 'group.abilities' array.
+    
     group.abilities[aIdx] = { ...group.abilities[aIdx], [field]: val };
     next[gIdx] = group;
     onChange(next);
@@ -82,6 +103,9 @@ const TabAbilities: React.FC<Props> = ({ character, isEditMode, displayMode, onC
 
   // --- Derived Data for Charts (Memoized to prevent flickering during text edits) ---
   const structureData = useMemo(() => {
+      // Optimization: Skip calculation in Edit Mode
+      if (isEditMode) return [];
+
       const data = ability_groups.map((g, i) => {
         const name = g.name || "Unknown";
         let baseName = name.length > 10 ? name.substring(0, 8) + '..' : name;
@@ -98,9 +122,12 @@ const TabAbilities: React.FC<Props> = ({ character, isEditMode, displayMode, onC
           });
       }
       return data;
-  }, [ability_groups]); // Re-calculates if array reference changes (add/remove) or contents change
+  }, [ability_groups, isEditMode]);
 
   const bonusData = useMemo(() => {
+      // Optimization: Skip calculation in Edit Mode
+      if (isEditMode) return [];
+
       let phys = 0, magic = 0, unique = 0;
       ability_groups.forEach(g => {
         if (Array.isArray(g.abilities)) {
@@ -126,13 +153,11 @@ const TabAbilities: React.FC<Props> = ({ character, isEditMode, displayMode, onC
         { subject: t('stat_mag_short', 'МАГ'), value: getValue(magic) },
         { subject: t('stat_uni_short', 'УНИК'), value: getValue(unique) },
       ];
-  }, [ability_groups, t]);
+  }, [ability_groups, t, isEditMode]);
 
   return (
     <div className="space-y-8 animate-fade-in">
       
-      {/* Charts Visualization - Explicit Cyan Color */}
-      {/* PERFORMANCE FIX: Only render charts in View Mode */}
       {!isEditMode && (
           <TabRadarCharts 
               structureData={structureData} 
@@ -148,6 +173,15 @@ const TabAbilities: React.FC<Props> = ({ character, isEditMode, displayMode, onC
         
         const isCollapsed = collapsedGroups[gIdx];
         const isHidden = group.is_hidden;
+
+        // Prepare sorted list for display, but keep original index
+        const abilitiesWithIndex = group.abilities.map((ab, i) => ({ ...ab, originalIndex: i }));
+        
+        // Sort: Unblocked first, Blocked last
+        const sortedAbilities = abilitiesWithIndex.sort((a, b) => {
+            if (a.is_blocked === b.is_blocked) return 0;
+            return a.is_blocked ? 1 : -1;
+        });
 
         return (
           // Use Index as key to prevent re-mounting on name change
@@ -196,62 +230,83 @@ const TabAbilities: React.FC<Props> = ({ character, isEditMode, displayMode, onC
              {/* Content */}
              {!isCollapsed && (
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
-                 {group.abilities.map((ability, aIdx) => (
-                   <Card key={aIdx} className="hover:border-gray-700 transition-colors bg-[#0b0d10] border-gray-800">
+                 {sortedAbilities.map((abilityWrapper) => {
+                   const { originalIndex, ...ability } = abilityWrapper;
+                   const isBlocked = ability.is_blocked;
+
+                   return (
+                   <Card key={originalIndex} className={`hover:border-gray-700 transition-colors bg-[#0b0d10] border-gray-800 ${isBlocked ? 'opacity-60 grayscale-[0.8] hover:opacity-100 hover:grayscale-0' : ''}`}>
                       <div className="flex justify-between items-start mb-2 overflow-hidden">
                          <div className="flex-1 min-w-0 mr-2" title={ability.name}>
                            <StyledInput 
-                              isEditMode={isEditMode} 
+                              isEditMode={isEditMode && !isBlocked} 
+                              disabled={isBlocked}
                               value={ability.name} 
-                              onChange={e => updateAbility(gIdx, aIdx, 'name', e.target.value)} 
-                              className="font-bold text-lg truncate block w-full" 
+                              onChange={e => updateAbility(gIdx, originalIndex, 'name', e.target.value)} 
+                              className={`font-bold text-lg truncate block w-full ${isBlocked ? 'text-slate-500' : ''}`} 
                               // [DIALECT]
                               placeholder={t('ph_ability_name', "Название навыка")}
                            />
                          </div>
-                         {isEditMode && <button onClick={() => removeAbility(gIdx, aIdx)} className="text-red-900 hover:text-red-500 transition-colors flex-shrink-0"><Trash2 size={14}/></button>}
+                         {isEditMode && (
+                             <div className="flex items-center gap-1 flex-shrink-0">
+                                <button 
+                                    onClick={() => updateAbility(gIdx, originalIndex, 'is_blocked', !isBlocked)}
+                                    className={`p-1 rounded transition-colors ${isBlocked ? 'text-amber-500 bg-amber-900/20' : 'text-slate-600 hover:text-amber-400'}`}
+                                    title={isBlocked ? "Разблокировать" : "Заблокировать (Архивировать)"}
+                                >
+                                    {isBlocked ? <Lock size={14} /> : <Unlock size={14} />}
+                                </button>
+                                {!isBlocked && (
+                                    <button onClick={() => removeAbility(gIdx, originalIndex)} className="text-red-900 hover:text-red-500 transition-colors">
+                                        <Trash2 size={14}/>
+                                    </button>
+                                )}
+                             </div>
+                         )}
                       </div>
                       
                       {/* Mech Details (Hidden in Lore Mode unless Editing) */}
                       {(shouldShowMech || isEditMode) && (
-                        <div className="flex flex-wrap gap-2 mb-2">
-                          <BonusInput isEditMode={isEditMode} bonuses={ability.bonuses} onChange={b => updateAbility(gIdx, aIdx, 'bonuses', b)} />
+                        <div className={`flex flex-wrap gap-2 mb-2 ${isBlocked ? 'pointer-events-none' : ''}`}>
+                          <BonusInput isEditMode={isEditMode && !isBlocked} bonuses={ability.bonuses} onChange={b => updateAbility(gIdx, originalIndex, 'bonuses', b)} />
                           <TimeInput 
-                            icon={Clock} label="КД" isEditMode={isEditMode} 
+                            icon={Clock} label="КД" isEditMode={isEditMode && !isBlocked} 
                             val={ability.cd} unit={ability.cd_unit} 
-                            onChangeVal={v => updateAbility(gIdx, aIdx, 'cd', v)} 
-                            onChangeUnit={u => updateAbility(gIdx, aIdx, 'cd_unit', u)} 
+                            onChangeVal={v => updateAbility(gIdx, originalIndex, 'cd', v)} 
+                            onChangeUnit={u => updateAbility(gIdx, originalIndex, 'cd_unit', u)} 
                             options={timeUnits}
                           />
                           <TimeInput 
-                            icon={Hourglass} label="Длит." isEditMode={isEditMode} 
+                            icon={Hourglass} label="Длит." isEditMode={isEditMode && !isBlocked} 
                             val={ability.dur} unit={ability.dur_unit} 
-                            onChangeVal={v => updateAbility(gIdx, aIdx, 'dur', v)} 
-                            onChangeUnit={u => updateAbility(gIdx, aIdx, 'dur_unit', u)} 
+                            onChangeVal={v => updateAbility(gIdx, originalIndex, 'dur', v)} 
+                            onChangeUnit={u => updateAbility(gIdx, originalIndex, 'dur_unit', u)} 
                             options={timeUnits}
                           />
                           {/* Limit input */}
                           <TimeInput 
-                            icon={Hash} label="Лимит" isEditMode={isEditMode} 
+                            icon={Hash} label="Лимит" isEditMode={isEditMode && !isBlocked} 
                             val={ability.limit || 0} unit={ability.limit_unit || ""} 
-                            onChangeVal={v => updateAbility(gIdx, aIdx, 'limit', v)} 
-                            onChangeUnit={u => updateAbility(gIdx, aIdx, 'limit_unit', u)} 
+                            onChangeVal={v => updateAbility(gIdx, originalIndex, 'limit', v)} 
+                            onChangeUnit={u => updateAbility(gIdx, originalIndex, 'limit_unit', u)} 
                             options={timeUnits}
                           />
                         </div>
                       )}
 
-                      <div className="mb-3">
-                         <TagInput isEditMode={isEditMode} tags={ability.tags || []} onChange={t => updateAbility(gIdx, aIdx, 'tags', t)} />
-                         {isEditMode && <CommonTagToggles tags={ability.tags || []} onChange={t => updateAbility(gIdx, aIdx, 'tags', t)} />}
+                      <div className={`mb-3 ${isBlocked ? 'pointer-events-none' : ''}`}>
+                         <TagInput isEditMode={isEditMode && !isBlocked} tags={ability.tags || []} onChange={t => updateAbility(gIdx, originalIndex, 'tags', t)} />
+                         {isEditMode && !isBlocked && <CommonTagToggles tags={ability.tags || []} onChange={t => updateAbility(gIdx, originalIndex, 'tags', t)} />}
                       </div>
 
                       {/* Lore Text */}
                       {(shouldShowLore || isEditMode) && (
                         <StyledTextarea 
-                          isEditMode={isEditMode} 
+                          isEditMode={isEditMode && !isBlocked} 
+                          disabled={isBlocked}
                           value={ability.desc_lore} 
-                          onChange={e => updateAbility(gIdx, aIdx, 'desc_lore', e.target.value)} 
+                          onChange={e => updateAbility(gIdx, originalIndex, 'desc_lore', e.target.value)} 
                           className="text-sm text-gray-400 italic mb-2" 
                           // [DIALECT]
                           placeholder={t('ph_ability_lore', "Худ. описание")}
@@ -262,17 +317,19 @@ const TabAbilities: React.FC<Props> = ({ character, isEditMode, displayMode, onC
                       {(shouldShowMech || isEditMode) && (isEditMode || ability.desc_mech) && (
                         <div className={`pt-2 ${!isEditMode && shouldShowLore ? 'border-t border-gray-800' : ''}`}>
                           <StyledTextarea 
-                            isEditMode={isEditMode} 
+                            isEditMode={isEditMode && !isBlocked} 
+                            disabled={isBlocked}
                             value={ability.desc_mech} 
-                            onChange={e => updateAbility(gIdx, aIdx, 'desc_mech', e.target.value)} 
-                            className={`text-xs font-mono leading-relaxed ${isEditMode ? 'text-green-400' : 'text-green-500/80'}`} 
+                            onChange={e => updateAbility(gIdx, originalIndex, 'desc_mech', e.target.value)} 
+                            className={`text-xs font-mono leading-relaxed ${isEditMode ? 'text-green-400' : 'text-green-500/80'} ${isBlocked ? 'text-slate-500' : ''}`} 
                             // [DIALECT]
                             placeholder={t('ph_ability_mech', "Механика")} 
                           />
                         </div>
                       )}
                    </Card>
-                 ))}
+                 )})}
+                 
                  {isEditMode && (
                    <button onClick={() => addAbility(gIdx)} className="border-2 border-dashed border-gray-800 rounded-lg flex items-center justify-center text-gray-700 hover:text-cyan-500 hover:border-cyan-900 transition-all min-h-[150px] bg-slate-900/50 backdrop-blur-sm">
                      <Plus size={24} />

@@ -16,6 +16,7 @@ interface AuthContextType {
   signInAsGuest: () => Promise<void>;
   signOut: () => Promise<void>;
   logoutAdmin: () => void; 
+  updatePassword: (newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -286,6 +287,13 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
     setIsAdmin(false);
   };
 
+  const updatePassword = async (newPassword: string) => {
+      if (!user || user.id === 'guest') throw new Error("Гости не могут менять пароль");
+      
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -298,7 +306,8 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
       signUp,
       signInAsGuest,
       signOut,
-      logoutAdmin
+      logoutAdmin,
+      updatePassword
     }}>
       {children}
     </AuthContext.Provider>

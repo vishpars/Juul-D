@@ -18,6 +18,7 @@ import { Save, ChevronLeft, ChevronRight, Edit3, Trash2, RotateCcw, Settings, Bo
 import { DialectProvider, useDialect } from './dialect_module/DialectContext';
 import { UIProvider, useUI } from './context/UIContext';
 import { TrainingPage } from './pages/TrainingPage';
+import { useAuth } from '../../context/AuthContext';
 
 export type DisplayMode = 'lore' | 'mech';
 
@@ -28,11 +29,18 @@ interface RosterModuleProps {
 const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
   const { toggleDialect, isOldSlavonic, isDialectUnlocked, t } = useDialect();
   const { showAlert, showConfirm } = useUI();
+  const { user } = useAuth(); // Get current logged-in user
   
   // App State
   // View can now be 'training' as well
   const [view, setView] = useState<'roster' | 'sheet' | 'training'>('roster');
+  
+  // --- SPLIT STATE FOR PERFORMANCE ---
+  // `characters` holds the master state, updated on every keystroke in Sheet.
+  // `rosterList` holds the snapshot for the sidebar list, updated only on Save/Init/Create/Delete.
   const [characters, setCharacters] = useState<CharacterData[]>([]);
+  const [rosterList, setRosterList] = useState<CharacterData[]>([]);
+  
   const [isLoadingData, setIsLoadingData] = useState(true);
 
   const [activeCharId, setActiveCharId] = useState<string | null>(null);
@@ -78,6 +86,7 @@ const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
           SupabaseService.getTimeUnits()
         ]);
         setCharacters(chars);
+        setRosterList(chars); // Init roster list
         setTriggersMap(trigs);
         setInjuryDefinitions(inj);
         setTimeUnits(units);
@@ -94,23 +103,32 @@ const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
     const newChar: CharacterData = JSON.parse(JSON.stringify(INITIAL_CHARACTER));
     newChar.id = crypto.randomUUID();
     newChar.profile.name = "Новая Душа";
+    // Set current user as owner if not admin creating system char (optional, usually admin creates)
+    if (user && !isAdmin) {
+        newChar.meta.uid = user.id;
+    }
     
     // Optimistic UI
-    setCharacters(prev => [...prev, newChar]);
+    const updated = [...characters, newChar];
+    setCharacters(updated);
+    setRosterList(updated); // Update list immediately on creation
     
     try {
-      await SupabaseService.saveCharacter(newChar);
+      await SupabaseService.saveCharacter(newChar, isAdmin);
       setActiveCharId(newChar.id);
       setCharStack([newChar.id]);
       setView('sheet');
       setIsEditMode(true);
     } catch (e) {
       showAlert("Ошибка создания: " + e, "Сбой базы данных");
-      setCharacters(prev => prev.filter(c => c.id !== newChar.id));
+      const reverted = characters.filter(c => c.id !== newChar.id);
+      setCharacters(reverted);
+      setRosterList(reverted);
     }
   };
   
   const handleSelect = (id: string) => {
+    // When selecting a new char, we ensure we have the latest data from our master list
     setActiveCharId(id);
     setCharStack([id]);
     setView('sheet');
@@ -134,6 +152,10 @@ const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
       setView('roster');
       setActiveCharId(null);
       setCharStack([]);
+      // On return to roster, sync list to ensure any saved changes are reflected
+      // But actually, we only update rosterList on Save, so it should be fine.
+      // If user cancels edits, characters state might need revert? 
+      // For now, we assume simple state model: edits are kept in memory until discarded or saved.
     }
   };
 
@@ -151,17 +173,25 @@ const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
 
   const activeChar = characters.find(c => c.id === activeCharId);
 
+  // Permission Logic
+  const isOwner = user && activeChar && activeChar.meta.uid === user.id;
+  const canEdit = isAdmin || isOwner;
+
   const updateActiveChar = (updates: Partial<CharacterData>) => {
     if (!activeChar) return;
     const updated = { ...activeChar, ...updates };
     setCharacters(prev => prev.map(c => c.id === activeChar.id ? updated : c));
+    // NOTE: We do NOT update `rosterList` here to avoid sidebar re-renders/jitters
   };
 
   const handleSave = async () => {
     if (!activeChar) return;
     try {
-      await SupabaseService.saveCharacter(activeChar);
+      // Pass isAdmin flag to handle "Prime" backup logic
+      await SupabaseService.saveCharacter(activeChar, isAdmin);
       setIsEditMode(false);
+      // Sync Roster List on Save
+      setRosterList(characters);
     } catch (e) {
       showAlert("Ошибка сохранения: " + e, "Ошибка");
     }
@@ -170,8 +200,10 @@ const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
   const handleInstantUpdate = async (eq: CharacterData['equipment']) => {
       if (!activeChar) return;
       const updated = { ...activeChar, equipment: eq };
-      setCharacters(prev => prev.map(c => c.id === activeChar.id ? updated : c));
-      await SupabaseService.saveCharacter(updated);
+      const newChars = characters.map(c => c.id === activeChar.id ? updated : c);
+      setCharacters(newChars);
+      await SupabaseService.saveCharacter(updated, isAdmin);
+      setRosterList(newChars); // Update roster immediately for instant actions
   };
 
   const handleDelete = async (idToDelete?: string) => {
@@ -181,7 +213,9 @@ const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
     showConfirm("Вы уверены? Это действие необратимо уничтожит сущность.", async () => {
         try {
           await SupabaseService.deleteCharacter(targetId);
-          setCharacters(prev => prev.filter(c => c.id !== targetId));
+          const updated = characters.filter(c => c.id !== targetId);
+          setCharacters(updated);
+          setRosterList(updated); // Sync list
           if (targetId === activeCharId) {
              handleBack();
           }
@@ -197,10 +231,14 @@ const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
       unit.id = crypto.randomUUID();
       unit.profile.name = "Новый Юнит";
       unit.meta.master_id = activeChar.id;
+      // Units inherit Owner UID
+      unit.meta.uid = activeChar.meta.uid; 
       
       try {
-        await SupabaseService.saveCharacter(unit);
-        setCharacters(prev => [...prev, unit]);
+        await SupabaseService.saveCharacter(unit, isAdmin);
+        const updated = [...characters, unit];
+        setCharacters(updated);
+        setRosterList(updated); // Sync
         handleNavigateToUnit(unit.id);
         setIsEditMode(true);
       } catch (e) {
@@ -256,7 +294,7 @@ const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
       {view === 'roster' && (
         <>
           <Roster 
-            characters={characters} 
+            characters={rosterList} // Use the buffered list for performance
             onSelect={handleSelect} 
             onCreate={handleCreate} 
             onOpenSettings={() => setIsSettingsOpen(true)}
@@ -328,7 +366,7 @@ const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
                   </button>
                </div>
 
-               {isAdmin && (
+               {canEdit && (
                  <>
                    <div className="h-6 w-px bg-slate-800 mx-1"></div>
                    
@@ -345,11 +383,19 @@ const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
 
                    {isEditMode ? (
                      <>
-                        <Button variant="danger" size="sm" onClick={() => handleDelete(activeChar.id)} title="Delete">
-                          <Trash2 size={16} />
-                        </Button>
+                        {/* Delete only for Admin */}
+                        {isAdmin && (
+                            <Button variant="danger" size="sm" onClick={() => handleDelete(activeChar.id)} title="Delete">
+                                <Trash2 size={16} />
+                            </Button>
+                        )}
                         <Button variant="secondary" size="sm" onClick={() => {
-                           showConfirm("Отменить несохраненные изменения?", () => setIsEditMode(false));
+                           showConfirm("Отменить несохраненные изменения?", () => {
+                               // Revert to roster list version if needed, or just exit edit
+                               const original = rosterList.find(c => c.id === activeChar.id);
+                               if (original) updateActiveChar(original); // Simple revert
+                               setIsEditMode(false);
+                           });
                         }}>
                            <RotateCcw size={16} />
                         </Button>
@@ -375,7 +421,7 @@ const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
             setDisplayMode={setDisplayMode}
             characters={characters}
             onNavigate={handleNavigateToUnit}
-            onDelete={handleDelete}
+            onDelete={isAdmin ? handleDelete : undefined}
             injuryDefinitions={injuryDefinitions}
           />
 

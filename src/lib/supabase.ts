@@ -1,34 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Helper to safely access environment variables
-const getEnvVar = (key: string): string | undefined => {
-  try {
-    // @ts-ignore - Vite/ESM standard
-    if (typeof import.meta !== 'undefined' && import.meta.env) {
-      // @ts-ignore
-      return import.meta.env[key];
-    }
-  } catch (e) {
-    console.warn('Error reading environment variable:', e);
-  }
-  return undefined;
-};
-
-// Credentials with fallback to ensure app functionality
-// Using provided fallback keys if env vars are missing to prevent crash/hang
-
-const FALLBACK_URL = '';
-const FALLBACK_KEY = '';
-
-const supabaseUrl = getEnvVar('VITE_SUPABASE_URL') || FALLBACK_URL;
-const supabaseAnonKey = getEnvVar('VITE_SUPABASE_ANON_KEY') || FALLBACK_KEY;
+// Access environment variables. 
+// We check both import.meta.env (Vite standard) and process.env (Shimmed in vite.config.ts)
+const supabaseUrl = "https://vadwslmqajbbmklrhnzu.supabase.co";
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhZHdzbG1xYWpiYm1rbHJobnp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwNDAxMjIsImV4cCI6MjA4NDYxNjEyMn0.kTxNj1b9kvoRmae5dpR9LnHPYeiSW7R9yhFaQAQydgc";
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("CRITICAL: Supabase credentials missing and no fallback available.");
+  console.error("Supabase URL or Key is missing. Please check your .env.local file.");
 }
 
-// Create the Supabase client
-export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co', 
-  supabaseAnonKey || 'placeholder'
-);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);

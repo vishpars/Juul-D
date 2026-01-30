@@ -33,11 +33,10 @@ export const DialectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isInputMode, setIsInputMode] = useState(false);
   const [inputBuffer, setInputBuffer] = useState("");
   
-  // Global Keyboard Buffer for "rak-kubov"
-  const [globalKeyBuffer, setGlobalKeyBuffer] = useState("");
-  
   const SLAVONIC_CODE = "пишет//дед";
-  const BLOOD_CODE = "тело//и//плоть";
+  // Updated to match clickable letters in "Летопись Душ"
+  const BLOOD_ON_CODE = "тело//и//плоть"; 
+  const BLOOD_OFF_CODE = "шут//дилль";
   const TOGGLE_UNLOCK_CODE = "рак-кубов";
   const CLICKS_REQUIRED = 15;
 
@@ -56,43 +55,48 @@ export const DialectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Global Key Listener for "rak-kubov" unlock
   useEffect(() => {
-      const handleGlobalKeyDown = (e: KeyboardEvent) => {
-          if (isToggleVisible) return;
+      let buffer = ""; 
 
-          setGlobalKeyBuffer(prev => {
-              const next = (prev + e.key.toLowerCase()).slice(-20);
-              
-              if (next.includes(TOGGLE_UNLOCK_CODE)) {
-                  setIsToggleVisible(true);
-                  localStorage.setItem('isToggleVisible', 'true');
-                  console.log("Dialect Toggle Button Unlocked!");
-              }
-              return next;
-          });
+      const handleGlobalKeyDown = (e: KeyboardEvent) => {
+          if (e.key.length > 1 && e.key !== 'Minus' && e.key !== '-') return;
+
+          const char = e.key.toLowerCase();
+          buffer = (buffer + char).slice(-30); 
+
+          if (buffer.includes(TOGGLE_UNLOCK_CODE)) {
+              setIsToggleVisible(prev => {
+                  const newState = !prev;
+                  localStorage.setItem('isToggleVisible', String(newState));
+                  console.log(`Dialect Toggle Button ${newState ? 'Unlocked' : 'Hidden'}!`);
+                  return newState;
+              });
+              buffer = ""; 
+          }
       };
 
       window.addEventListener('keydown', handleGlobalKeyDown);
       return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [isToggleVisible]);
+  }, []);
 
   const unlockDialect = () => {
     setIsDialectUnlocked(true);
     localStorage.setItem('isDialectUnlocked', 'true');
     setIsInputMode(false);
     setInputBuffer("");
+    setSlashClickCount(0);
     console.log("Dialect Unlocked!");
   };
 
-  const activateBloodMode = () => {
-      const newState = !isBloodMode;
-      setIsBloodMode(newState);
-      localStorage.setItem('isBloodMode', String(newState));
+  const setBloodMode = (active: boolean) => {
+      setIsBloodMode(active);
+      localStorage.setItem('isBloodMode', String(active));
       setIsInputMode(false);
       setInputBuffer("");
+      setSlashClickCount(0); // Reset slash counter for next time
+      console.log(`Blood Mode ${active ? 'Enabled' : 'Disabled'}`);
   };
 
   const handleSlashClick = () => {
-    // Allows entering codes even if unlocked (e.g. for blood mode)
     if (!isInputMode) {
       const newCount = slashClickCount + 1;
       setSlashClickCount(newCount);
@@ -109,13 +113,14 @@ export const DialectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (!isInputMode) return;
 
     setInputBuffer(prev => {
-      const next = (prev + char.toLowerCase()).slice(-20);
+      const next = (prev + char.toLowerCase()).slice(-30);
       
       if (next.includes(SLAVONIC_CODE)) {
          unlockDialect();
-      }
-      if (next.includes(BLOOD_CODE)) {
-         activateBloodMode();
+      } else if (next.includes(BLOOD_ON_CODE)) {
+         setBloodMode(true);
+      } else if (next.includes(BLOOD_OFF_CODE)) {
+         setBloodMode(false);
       }
       return next;
     });
@@ -135,8 +140,7 @@ export const DialectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const trackTabChange = (faction: Faction) => {
-      // Deprecated functionality, kept empty for interface compatibility if needed, 
-      // but logic moved to keyboard input.
+      // Deprecated
   };
 
   return (
@@ -164,7 +168,7 @@ export const useDialect = () => {
     return { 
       isOldSlavonic: false, 
       isDialectUnlocked: false, 
-      isBloodMode: false,
+      isBloodMode: false, 
       isToggleVisible: false,
       toggleDialect: () => {}, 
       handleSlashClick: () => {},

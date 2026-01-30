@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Bonus, StatType, TimeUnit } from '../types';
 import { 
   Trash2, Plus, Sword, Wand2, Crown, Shield, Heart, Coins, 
@@ -87,38 +87,81 @@ export const Button = ({
   );
 };
 
-// --- Advanced Inputs ---
+// --- Advanced Inputs (Optimized for Performance) ---
 
-export const StyledInput = ({ label, isEditMode, className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label?: string, isEditMode: boolean }) => {
+// Optimized Input: Updates parent state ONLY onBlur to prevent re-rendering entire tree on every keystroke
+export const StyledInput = ({ label, isEditMode, className = "", value, onChange, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label?: string, isEditMode: boolean }) => {
+  const [localValue, setLocalValue] = useState(value);
+
+  // Sync local state if parent value changes externally
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (onChange && localValue !== value) {
+      onChange(e);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalValue(e.target.value);
+  };
+
   if (!isEditMode) return (
     <div className="flex flex-col gap-1 w-full">
       {label && <span className="text-[9px] uppercase font-serif font-bold text-slate-600 tracking-widest">{label}</span>}
-      <div className={`text-slate-200 border-b border-violet-900/20 py-1 min-h-[1.5rem] ${className}`}>{props.value}</div>
+      <div className={`text-slate-200 border-b border-violet-900/20 py-1 min-h-[1.5rem] ${className}`}>{value}</div>
     </div>
   );
+
   return (
     <div className="flex flex-col gap-1 w-full">
       {label && <span className="text-[9px] uppercase font-serif font-bold text-slate-500 tracking-widest">{label}</span>}
       <input 
         className={`bg-[#020408] border border-violet-900/40 text-slate-200 text-sm px-3 py-1.5 focus:border-violet-500 focus:shadow-glow focus:outline-none transition-all placeholder:text-slate-700 rune-clip-r ${className}`} 
+        value={localValue}
+        onChange={handleChange}
+        onBlur={handleBlur}
         {...props} 
       />
     </div>
   );
 };
 
-export const StyledTextarea = ({ label, isEditMode, className = "", ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { label?: string, isEditMode: boolean }) => {
+// Optimized Textarea: Same logic as Input
+export const StyledTextarea = ({ label, isEditMode, className = "", value, onChange, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { label?: string, isEditMode: boolean }) => {
+  const [localValue, setLocalValue] = useState(value);
+
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
+  const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    if (onChange && localValue !== value) {
+      onChange(e);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setLocalValue(e.target.value);
+  };
+
   if (!isEditMode) return (
     <div className="flex flex-col gap-1 w-full">
       {label && <span className="text-[9px] uppercase font-serif font-bold text-slate-600 tracking-widest">{label}</span>}
-      <div className={`text-slate-300 whitespace-pre-wrap text-sm ${className}`}>{props.value || "—"}</div>
+      <div className={`text-slate-300 whitespace-pre-wrap text-sm ${className}`}>{value || "—"}</div>
     </div>
   );
+
   return (
     <div className="flex flex-col gap-1 w-full">
       {label && <span className="text-[9px] uppercase font-serif font-bold text-slate-500 tracking-widest">{label}</span>}
       <textarea 
         className={`bg-[#020408] border border-violet-900/40 text-slate-200 text-sm px-3 py-2 focus:border-violet-500 focus:shadow-glow focus:outline-none transition-all min-h-[80px] rune-clip-r ${className}`} 
+        value={localValue}
+        onChange={handleChange}
+        onBlur={handleBlur}
         {...props} 
       />
     </div>
@@ -188,8 +231,7 @@ export const TimeInput = ({
 
 // --- Complex Components ---
 
-// Memoized to prevent input lag in large lists
-export const TagInput = React.memo(({ tags, onChange, isEditMode }: { tags: string[], onChange: (t: string[]) => void, isEditMode: boolean }) => {
+export const TagInput = ({ tags, onChange, isEditMode }: { tags: string[], onChange: (t: string[]) => void, isEditMode: boolean }) => {
   /* [DIALECT] */ const { t } = useDialect();
   if (!isEditMode) return null;
 
@@ -226,11 +268,7 @@ export const TagInput = React.memo(({ tags, onChange, isEditMode }: { tags: stri
       )}
     </div>
   );
-}, (prev, next) => {
-    // Only re-render if tags array changed or edit mode toggled
-    return prev.isEditMode === next.isEditMode && 
-           JSON.stringify(prev.tags) === JSON.stringify(next.tags);
-});
+};
 
 export const CommonTagToggles = ({ tags = [], onChange }: { tags: string[], onChange: (t: string[]) => void }) => {
   /* [DIALECT] */ const { t } = useDialect();
@@ -331,7 +369,6 @@ interface ChartProps {
   t: (key: string, def: string) => string;
 }
 
-// Memoized Chart Component to prevent re-renders on input typing
 const TabRadarChartsImpl = React.memo(({ structureData, bonusData, isDebuff = false, color, t }: ChartProps) => {
   if (structureData.length === 0 || structureData.every(d => d.value === 0)) {
       return (
@@ -422,8 +459,6 @@ const TabRadarChartsImpl = React.memo(({ structureData, bonusData, isDebuff = fa
     </div>
   );
 }, (prev, next) => {
-    // Custom comparison to prevent re-render if data is deep equal
-    // JSON stringify is fast enough for these small data structures
     return (
         prev.color === next.color &&
         prev.isDebuff === next.isDebuff &&

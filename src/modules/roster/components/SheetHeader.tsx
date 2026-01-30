@@ -1,5 +1,5 @@
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import { CharacterData, Faction, StatType, InjuryDefinition } from '../types';
 import { NPC_VOLUMES } from '../constants';
 import { StyledInput, StyledTextarea, StyledSelect, StatIcons, StatColors, StatBg, Button } from './Shared';
@@ -22,6 +22,28 @@ interface Props {
   onDelete?: (id: string) => void;
   injuryDefinitions?: InjuryDefinition[];
 }
+
+// Memoized Chart Component for Header
+const HeaderRadarChart = React.memo(({ data }: { data: any[] }) => {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <RadarChart cx="50%" cy="50%" outerRadius="65%" data={data}>
+        <PolarGrid stroke="#334155" strokeOpacity={0.5} />
+        <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 9, fontWeight: '900', fontFamily: 'Cinzel' }} />
+        <PolarRadiusAxis angle={30} domain={[0, 25]} tick={false} axisLine={false} />
+        <Radar
+          name="Stats"
+          dataKey="A"
+          stroke="#8b5cf6"
+          strokeWidth={2}
+          fill="#8b5cf6"
+          fillOpacity={0.3}
+          isAnimationActive={false} 
+        />
+      </RadarChart>
+    </ResponsiveContainer>
+  );
+}, (prev, next) => JSON.stringify(prev.data) === JSON.stringify(next.data));
 
 const SheetHeader: React.FC<Props> = ({ character, isEditMode, onChange, displayMode, setDisplayMode, characters, onNavigate, onDelete, injuryDefinitions = [] }) => {
   /* [DIALECT] */ const { t, isToggleVisible, toggleDialect, isOldSlavonic } = useDialect();
@@ -109,12 +131,12 @@ const SheetHeader: React.FC<Props> = ({ character, isEditMode, onChange, display
   const maxTrauma = 40; // Death threshold assumption
   const traumaPercent = Math.min(100, (trauma / maxTrauma) * 100);
 
-  const chartData = [
+  const chartData = useMemo(() => [
     // [DIALECT] Translate chart labels
     { subject: t('stat_phys_short', 'ФИЗ'), A: character.stats.phys, fullMark: 30 },
     { subject: t('stat_mag_short', 'МАГ'), A: character.stats.magic, fullMark: 30 },
     { subject: t('stat_uni_short', 'УНИК'), A: character.stats.unique, fullMark: 30 },
-  ];
+  ], [character.stats, t]);
 
   // Dynamic Styles based on Faction - Darker, more magical
   const getFactionColor = (f: Faction) => {
@@ -437,24 +459,15 @@ const SheetHeader: React.FC<Props> = ({ character, isEditMode, onChange, display
 
                  <div className="flex gap-4 h-48 relative">
                     {/* Compact Chart - ABSOLUTE positioning + flex-1 min-h-0 to prevent flex width calculation issues */}
-                    {/* Added background here for readability against image */}
+                    {/* Optimization: Don't render chart in Edit Mode to improve typing performance */}
                     <div className="flex-1 relative min-w-0 h-full bg-slate-950/70 backdrop-blur-sm rounded-xl border border-violet-900/20 overflow-hidden">
                        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
-                           <ResponsiveContainer width="100%" height="100%">
-                              <RadarChart cx="50%" cy="50%" outerRadius="65%" data={chartData}>
-                                <PolarGrid stroke="#334155" strokeOpacity={0.5} />
-                                <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 9, fontWeight: '900', fontFamily: 'Cinzel' }} />
-                                <PolarRadiusAxis angle={30} domain={[0, 25]} tick={false} axisLine={false} />
-                                <Radar
-                                  name="Stats"
-                                  dataKey="A"
-                                  stroke="#8b5cf6"
-                                  strokeWidth={2}
-                                  fill="#8b5cf6"
-                                  fillOpacity={0.3}
-                                />
-                              </RadarChart>
-                            </ResponsiveContainer>
+                           {!isEditMode && <HeaderRadarChart data={chartData} />}
+                           {isEditMode && (
+                               <div className="flex items-center justify-center h-full text-slate-600 text-xs font-serif uppercase tracking-widest opacity-50">
+                                   Диаграмма скрыта при редактировании
+                               </div>
+                           )}
                        </div>
                     </div>
 
