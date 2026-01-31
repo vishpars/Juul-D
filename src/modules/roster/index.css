@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -23,6 +24,19 @@
     animation: breath 4s ease-in-out infinite;
   }
   
+  /* Performance: GPU Acceleration & Paint Containment */
+  .gpu-accelerated {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+  }
+
+  /* Browser-native list virtualization */
+  .content-visibility-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 500px; /* Est. card height */
+  }
+
   /* Rune Shape Clip Path */
   .rune-clip {
     clip-path: polygon(

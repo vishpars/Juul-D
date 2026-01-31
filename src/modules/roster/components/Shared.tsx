@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Bonus, StatType, TimeUnit } from '../types';
 import { 
   Trash2, Plus, Sword, Wand2, Crown, Shield, Heart, Coins, 
-  User, Ghost, Skull, Book, Link as LinkIcon, Edit3, Eye, Save, Clock, Hourglass
+  User, Ghost, Skull, Book, Link as LinkIcon, Edit3, Eye, Save, Clock, Hourglass, Target
 } from 'lucide-react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 /* [DIALECT] */ import { useDialect } from '../dialect_module/DialectContext';
@@ -12,7 +12,8 @@ import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Responsi
 export const StatIcons: Record<string, React.ReactNode> = {
   [StatType.PHYS]: <Sword size={16} />,
   [StatType.MAGIC]: <Wand2 size={16} />,
-  [StatType.UNIQUE]: <Crown size={16} />
+  [StatType.UNIQUE]: <Crown size={16} />,
+  [StatType.CLEAN]: <Target size={16} />
 };
 
 export const Icons = {
@@ -24,13 +25,15 @@ export const Icons = {
 export const StatColors: Record<string, string> = {
   [StatType.PHYS]: "text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.5)]",
   [StatType.MAGIC]: "text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.5)]",
-  [StatType.UNIQUE]: "text-purple-400 drop-shadow-[0_0_8px_rgba(192,132,252,0.5)]"
+  [StatType.UNIQUE]: "text-purple-400 drop-shadow-[0_0_8px_rgba(192,132,252,0.5)]",
+  [StatType.CLEAN]: "text-slate-100 drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]"
 };
 
 export const StatBg: Record<string, string> = {
   [StatType.PHYS]: "bg-red-950/30 border-red-900/40",
   [StatType.MAGIC]: "bg-blue-950/30 border-blue-900/40",
-  [StatType.UNIQUE]: "bg-purple-950/30 border-purple-900/40"
+  [StatType.UNIQUE]: "bg-purple-950/30 border-purple-900/40",
+  [StatType.CLEAN]: "bg-slate-800 border-slate-600"
 };
 
 // Helper to safely get color class (prevents crash on .split)
@@ -332,6 +335,7 @@ export const BonusInput = ({ bonuses, onChange, isEditMode }: { bonuses: Bonus[]
                    <option value={StatType.PHYS}>{t('stat_phys_short', 'ФИЗ')}</option>
                    <option value={StatType.MAGIC}>{t('stat_mag_short', 'МАГ')}</option>
                    <option value={StatType.UNIQUE}>{t('stat_uni_short', 'УНИК')}</option>
+                   <option value={StatType.CLEAN}>{t('stat_clean_short', 'ЧИСТ')}</option>
                  </select>
                  <span className="text-slate-500">:</span>
                  <input 

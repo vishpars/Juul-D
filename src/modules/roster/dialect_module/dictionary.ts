@@ -14,6 +14,7 @@ export const DIALECT_DICT: Record<string, string> = {
   "stat_phys_short": "ТЕЛ",
   "stat_mag_short": "ДУХ",
   "stat_uni_short": "ТАЙН",
+  "stat_clean_short": "ЧИСТ",
 
   "res_hp": "Живот",
   "res_mp": "Ярь",

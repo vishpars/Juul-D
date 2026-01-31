@@ -107,7 +107,7 @@ const TabPassives: React.FC<Props> = ({ character, isEditMode, displayMode, onCh
   const shouldShowMech = displayMode === 'mech';
 
   const structureData = useMemo(() => {
-      if (isEditMode) return [];
+    if (isEditMode) return [];
       const positiveGroups = passives.filter(g => !g.is_flaw_group);
       const data = positiveGroups.map((g, i) => {
         const name = g.group_name || "Unknown";
@@ -119,7 +119,7 @@ const TabPassives: React.FC<Props> = ({ character, isEditMode, displayMode, onCh
   }, [passives, isEditMode]);
 
   const bonusData = useMemo(() => {
-      if (isEditMode) return [];
+    if (isEditMode) return [];
       let phys = 0, magic = 0, unique = 0;
       passives.filter(g => !g.is_flaw_group).forEach(g => {
         if (Array.isArray(g.items)) {
@@ -144,6 +144,34 @@ const TabPassives: React.FC<Props> = ({ character, isEditMode, displayMode, onCh
         { subject: t('stat_uni_short', 'УНИК'), value: getValue(unique) },
       ];
   }, [passives, t, isEditMode]);
+
+  // --- TRIGGER OPTIONS LOGIC ---
+  const triggerOptions = useMemo(() => {
+    const baseline = [
+        { key: 'Always', label: 'Пассивно / Всегда' },
+        { key: 'ability', label: 'От способности' },
+        { key: 'on_hit', label: 'При попадании' },
+        { key: 'on_defense', label: 'При защите' }
+    ];
+    
+    // Normalize keys from integrated map for comparison
+    const integratedEntries = Object.entries(triggersMap);
+    const integratedKeysLower = integratedEntries.map(([k]) => k.toLowerCase());
+
+    const result = baseline.map(base => {
+        const fromDb = integratedEntries.find(([k]) => k.toLowerCase() === base.key.toLowerCase());
+        return fromDb ? { key: fromDb[0], label: fromDb[1] } : base;
+    });
+
+    const baselineKeysLower = baseline.map(b => b.key.toLowerCase());
+    integratedEntries.forEach(([key, label]) => {
+        if (!baselineKeysLower.includes(key.toLowerCase())) {
+            result.push({ key, label });
+        }
+    });
+
+    return result;
+  }, [triggersMap]);
 
   return (
     <div className="space-y-8 animate-fade-in relative">
@@ -203,7 +231,6 @@ const TabPassives: React.FC<Props> = ({ character, isEditMode, displayMode, onCh
                    {sortedItems.map((itemWrapper) => {
                      const { originalIndex, ...item } = itemWrapper;
                      const isBlocked = !!item.is_blocked;
-                     
                      const rawTrigger = String(item.trigger || '').toLowerCase().trim();
                      const isAbilityTrigger = rawTrigger === 'ability' || rawTrigger.includes('способнос');
 
@@ -236,15 +263,10 @@ const TabPassives: React.FC<Props> = ({ character, isEditMode, displayMode, onCh
                                             onChange={e => updateItem(gIdx, originalIndex, 'trigger', e.target.value)} 
                                             className="bg-gray-800 text-xs border border-gray-700 rounded p-1 max-w-[200px] text-emerald-400 font-bold outline-none focus:border-emerald-500"
                                         >
-                                            <option value="Always">Пассивно / Всегда</option>
-                                            <option value="ability">От способности</option>
-                                            <option value="on_hit">При попадании</option>
-                                            <option value="on_defense">При защите</option>
-                                            {Object.entries(triggersMap).map(([key, label]) => (
-                                            <option key={key} value={key}>{label}</option>
+                                            {triggerOptions.map(opt => (
+                                                <option key={opt.key} value={opt.key}>{opt.label}</option>
                                             ))}
                                         </select>
-                                        
                                         <button 
                                             onClick={() => setLinkingState({ gIdx, iIdx: originalIndex })}
                                             className="bg-violet-900/30 hover:bg-violet-800 text-violet-300 border border-violet-700/50 rounded px-2 py-1 text-[10px] flex items-center gap-1 uppercase font-bold tracking-wider transition-colors"
@@ -255,13 +277,11 @@ const TabPassives: React.FC<Props> = ({ character, isEditMode, displayMode, onCh
                                     </>
                                     ) : (
                                     <span className="text-[10px] font-bold uppercase bg-gray-800 px-2 py-0.5 rounded border border-gray-700 text-emerald-400">
-                                        {isAbilityTrigger ? 'Активируется способностью' : (triggersMap[item.trigger] || item.trigger)}
+                                        {isAbilityTrigger ? 'Активируется способностью' : (triggerOptions.find(o => o.key === item.trigger)?.label || item.trigger)}
                                     </span>
                                     )}
                                     <BonusInput isEditMode={isEditMode} bonuses={item.bonuses} onChange={b => updateItem(gIdx, originalIndex, 'bonuses', b)} />
                                 </div>
-                                
-                                {/* Info Box for Linked Ability */}
                                 {isAbilityTrigger && (
                                     <div className={`text-[10px] flex items-center gap-2 font-bold px-2 py-1 rounded bg-black/40 border border-emerald-900/30 ${!item.trigger_ability_id ? 'text-red-400' : 'text-emerald-400'}`}>
                                         <Zap size={12} />
@@ -279,8 +299,8 @@ const TabPassives: React.FC<Props> = ({ character, isEditMode, displayMode, onCh
                             )}
 
                             <div className="mb-2">
-                            <TagInput isEditMode={isEditMode} tags={item.tags || []} onChange={t => updateItem(gIdx, originalIndex, 'tags', t)} />
-                            {isEditMode && <CommonTagToggles tags={item.tags || []} onChange={t => updateItem(gIdx, originalIndex, 'tags', t)} />}
+                                <TagInput isEditMode={isEditMode} tags={item.tags || []} onChange={t => updateItem(gIdx, originalIndex, 'tags', t)} />
+                                {isEditMode && <CommonTagToggles tags={item.tags || []} onChange={t => updateItem(gIdx, originalIndex, 'tags', t)} />}
                             </div>
 
                             {(shouldShowLore || isEditMode) && <StyledTextarea isEditMode={isEditMode} value={item.desc_lore} onChange={e => updateItem(gIdx, originalIndex, 'desc_lore', e.target.value)} className="text-sm text-gray-400 italic mb-2" placeholder={t('ph_lore_generic', "Худ. описание")} />}

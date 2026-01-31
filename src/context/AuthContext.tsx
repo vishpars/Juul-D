@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
 import bridge from '@vkontakte/vk-bridge';
@@ -24,9 +24,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children?: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null); 
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); // Default to true to wait for session check
+  const [isLoading, setIsLoading] = useState(true);
   
-  // Check admin role from DB
   const checkProfileRole = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -36,7 +35,6 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
         .single();
       
       if (error) {
-        console.warn("[Auth] Failed to fetch profile role.", error.message);
         setIsAdmin(false);
         return;
       }
@@ -52,11 +50,9 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
     }
   };
 
-  // --- Session Initialization Effect ---
   useEffect(() => {
     const initializeAuth = async () => {
         try {
-            // 1. Check active Supabase session
             const { data: { session } } = await supabase.auth.getSession();
             
             if (session?.user) {
@@ -68,7 +64,6 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
                 setUser(realUser);
                 checkProfileRole(session.user.id);
             } else {
-                // 2. Check for persisted Guest session
                 const isGuest = localStorage.getItem('juul_d_is_guest');
                 if (isGuest === 'true') {
                     setUser({
@@ -87,7 +82,6 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
 
     initializeAuth();
 
-    // 3. Subscribe to Auth Changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (event === 'SIGNED_OUT') {
             setUser(null);
@@ -99,7 +93,6 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
                 email: session.user.email || '',
                 role: 'user'
             };
-            // Only update if different to prevent loops, though React handles this
             setUser(realUser);
             localStorage.removeItem('juul_d_is_guest');
             
@@ -118,15 +111,10 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
     setIsLoading(true);
     try {
         if (email && password) {
-            // Attempt real Supabase Auth
             const { data, error } = await supabase.auth.signInWithPassword({ email, password });
             
-            if (error) {
-                console.error("Supabase Auth Error:", error.message);
-                throw error;
-            }
+            if (error) throw error;
             
-            // Explicitly set user immediately to prevent race conditions with navigation
             if (data.session?.user) {
                 const realUser: User = {
                     id: data.session.user.id,
@@ -137,7 +125,6 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
                 await checkProfileRole(data.session.user.id);
             }
         } else {
-            // Legacy / Default mock
             setUser({
                 id: '12345',
                 email: 'traveller@vk.com',
@@ -146,7 +133,7 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
         }
     } catch (e) {
         console.error("Sign-In Error:", e);
-        throw e; // Rethrow so AuthPage can display error
+        throw e;
     } finally {
         setIsLoading(false);
     }
@@ -155,7 +142,6 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
   const signInWithProvider = async (provider: 'google') => {
       setIsLoading(true);
       try {
-          // Construct redirect URL to return to the app root (handling subpaths like /Juul-D/)
           let baseUrl = '/';
           try {
               // @ts-ignore
@@ -163,49 +149,35 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
                   // @ts-ignore
                   baseUrl = import.meta.env.BASE_URL;
               }
-          } catch (e) {
-              // Ignore env read errors in sandboxes
-          }
+          } catch (e) {}
           
           const redirectUrl = window.location.origin + baseUrl;
           
-          const { data, error } = await supabase.auth.signInWithOAuth({
+          const { error } = await supabase.auth.signInWithOAuth({
               provider: provider,
-              options: {
-                  redirectTo: redirectUrl
-              }
+              options: { redirectTo: redirectUrl }
           });
           if (error) throw error;
       } catch (e) {
           console.error(`OAuth ${provider} Error:`, e);
           throw e;
-      } finally {
-          // Note: setIsLoading(false) is not called here because OAuth redirects away.
-          // It will reset when the page reloads on callback.
       }
   };
 
-  // Custom VK Handler for Mini Apps
   const signInWithVK = async () => {
       setIsLoading(true);
       try {
-          // 1. Get VK User Data
           const vkUser = await bridge.send('VKWebAppGetUserInfo');
           if (!vkUser || !vkUser.id) throw new Error("Не удалось получить данные ВК");
 
-          // 2. Generate Synthetic Credentials
-          // NOTE: This isn't production-secure for high-stakes apps, but standard for 
-          // client-side hobby apps without a backend proxy.
           const fakeEmail = `id${vkUser.id}@vk.juul-d.local`;
           const fakePassword = `vk_secret_${vkUser.id}_secure_salt_v1`;
 
-          // 3. Try to Sign In
           const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
               email: fakeEmail,
               password: fakePassword
           });
 
-          // 4. If Sign In fails (User doesn't exist), Sign Up
           if (signInError) {
               const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
                   email: fakeEmail,
@@ -214,9 +186,7 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
 
               if (signUpError) throw signUpError;
 
-              // 5. Update Profile with VK Name/Avatar (Wait for session trigger or force update)
               if (signUpData.user) {
-                  // Small delay to ensure triggers ran if any, then upsert
                   await new Promise(r => setTimeout(r, 500));
                   await supabase.from('profiles').upsert({
                       id: signUpData.user.id,
@@ -237,19 +207,9 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
   const signUp = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
-      if (error) {
-        console.error("Supabase Registration Error:", error.message);
-        throw error;
-      }
-      
-      if (!data.session && data.user) {
-          console.log("Registration successful, verify email.");
-      }
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) throw error;
+      if (!data.session && data.user) console.log("Registration successful.");
     } catch (e) {
       console.error("Registration Exception:", e);
       throw e;
@@ -260,15 +220,9 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
 
   const signInAsGuest = async () => {
       setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 800)); // Fake loading
-      
+      await new Promise(resolve => setTimeout(resolve, 800));
       localStorage.setItem('juul_d_is_guest', 'true');
-      
-      setUser({
-          id: 'guest',
-          email: 'guest@void.net',
-          role: 'guest'
-      });
+      setUser({ id: 'guest', email: 'guest@void.net', role: 'guest' });
       setIsAdmin(false); 
       setIsLoading(false);
   };
@@ -277,25 +231,20 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
     setIsLoading(true);
     setIsAdmin(false);
     localStorage.removeItem('juul_d_is_guest');
-    
     await supabase.auth.signOut();
     setUser(null);
     setIsLoading(false);
   };
 
-  const logoutAdmin = () => {
-    setIsAdmin(false);
-  };
+  const logoutAdmin = () => setIsAdmin(false);
 
   const updatePassword = async (newPassword: string) => {
       if (!user || user.id === 'guest') throw new Error("Гости не могут менять пароль");
-      
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
   };
 
-  return (
-    <AuthContext.Provider value={{ 
+  const value = useMemo(() => ({
       user, 
       isAuthenticated: !!user, 
       isLoading, 
@@ -308,7 +257,10 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
       signOut,
       logoutAdmin,
       updatePassword
-    }}>
+  }), [user, isLoading, isAdmin]);
+
+  return (
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

@@ -105,12 +105,12 @@ const SheetHeader: React.FC<Props> = ({ character, isEditMode, onChange }) => {
                    {isEditMode ? (
                      <input 
                        type="number" 
-                       value={character.stats[stat]} 
-                       onChange={(e) => updateStats(stat, parseInt(e.target.value))}
+                       value={character.stats[stat as keyof CharacterData['stats']]} 
+                       onChange={(e) => updateStats(stat as keyof CharacterData['stats'], parseInt(e.target.value))}
                        className="bg-transparent text-2xl font-bold text-center w-full focus:outline-none"
                      />
                    ) : (
-                     <span className="text-2xl font-bold text-gray-200">{character.stats[stat]}</span>
+                     <span className="text-2xl font-bold text-gray-200">{character.stats[stat as keyof CharacterData['stats']]}</span>
                    )}
                    <span className="text-[10px] uppercase tracking-widest opacity-60 font-bold">{stat}</span>
                 </div>

@@ -9,7 +9,8 @@ export enum Faction {
 export enum StatType {
   PHYS = "phys",
   MAGIC = "magic",
-  UNIQUE = "unique"
+  UNIQUE = "unique",
+  CLEAN = "cleanb"
 }
 
 export enum PassiveTrigger {
@@ -22,7 +23,8 @@ export enum PassiveTrigger {
   INFLICT_PHYS = "Inflict Phys Injury",
   INFLICT_MAG = "Inflict Mag Injury",
   TAKE_PHYS = "Take Phys Injury",
-  TAKE_MAG = "Take Mag Injury"
+  TAKE_MAG = "Take Mag Injury",
+  WEAKRES = "Weakness/Resistance"
 }
 
 export interface Bonus {

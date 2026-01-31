@@ -199,9 +199,9 @@ const Roster: React.FC<Props> = ({ characters, onSelect, onCreate, onOpenSetting
 
       {/* DYNAMIC ATMOSPHERIC LIGHTING LAYERS */}
       {/* Top ambient glow based on faction */}
-      <div className={`fixed top-0 left-0 right-0 h-32 bg-gradient-to-b ${theme.glowColor} to-transparent pointer-events-none z-0 transition-all duration-700`}></div>
+      <div className={`fixed top-0 left-0 right-0 h-32 bg-gradient-to-b ${theme.glowColor} to-transparent pointer-events-none z-0 transition-all duration-700 gpu-accelerated`}></div>
       {/* Bottom ambient glow based on faction */}
-      <div className={`fixed bottom-0 left-0 right-0 h-32 bg-gradient-to-t ${theme.glowColor} to-transparent pointer-events-none z-0 transition-all duration-700`}></div>
+      <div className={`fixed bottom-0 left-0 right-0 h-32 bg-gradient-to-t ${theme.glowColor} to-transparent pointer-events-none z-0 transition-all duration-700 gpu-accelerated`}></div>
 
       {/* Scrollable Content Layer */}
       <div className="flex-1 overflow-y-auto custom-scrollbar px-4 md:px-12 pt-4 md:pt-8 pb-32 w-full relative z-10">
@@ -305,6 +305,7 @@ const Roster: React.FC<Props> = ({ characters, onSelect, onCreate, onOpenSetting
                             group relative overflow-hidden rounded-xl cursor-pointer transition-all duration-300
                             bg-slate-900/40 backdrop-blur-md border border-white/5 hover:-translate-y-1
                             ${theme.border} ${theme.glow}
+                            content-visibility-auto
                         `}
                     >
                         {/* Card Background Glow */}
@@ -317,7 +318,7 @@ const Roster: React.FC<Props> = ({ characters, onSelect, onCreate, onOpenSetting
                                 <div className="relative shrink-0">
                                     <div className="w-12 h-12 rounded-lg bg-black/50 border border-white/10 overflow-hidden flex items-center justify-center group-hover:border-white/30 transition-colors">
                                         {char.meta.avatar_url ? (
-                                            <img src={char.meta.avatar_url} className="w-full h-full object-cover" />
+                                            <img src={char.meta.avatar_url} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                                         ) : (
                                             <UserIcon size={20} className="text-slate-600" />
                                         )}

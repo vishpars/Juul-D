@@ -248,7 +248,7 @@ const CanvasNode: React.FC<CanvasNodeProps> = ({ node, participants, onRemove, o
       const cardStyle = getAbilityCardStyles(ability);
 
       // --- SETTINGS LOGIC ---
-      const matchingFactors = getMatchingFactors(actor, ability.tags);
+      const matchingFactors = getMatchingFactors(actor, ability.tags, ability.name);
       const excluded = node.data?.excludedModifiers || [];
 
       const toggleModifier = (modName: string) => {
@@ -377,42 +377,49 @@ const SequenceCanvas: React.FC<Props> = ({ tree, participants, onRemove, onUpdat
                  <button onClick={onAddCondition} className="flex items-center gap-1 px-2 py-1 bg-amber-900/20 text-amber-400 border border-amber-800/50 rounded hover:bg-amber-900/40 text-[10px] uppercase font-bold tracking-wider transition-all whitespace-nowrap">
                     <Split size={12} /> Логика
                  </button>
-                 <button onClick={onAddDivider} className="flex items-center gap-1 px-2 py-1 bg-slate-800 text-slate-400 border border-slate-700 rounded hover:bg-slate-700 hover:text-white text-[10px] uppercase font-bold tracking-wider transition-all whitespace-nowrap">
-                    <Minus size={12} /> Раздел
+                 <button onClick={onAddDivider} className="flex items-center gap-1 px-2 py-1 bg-slate-800 text-slate-400 border border-slate-700 rounded hover:bg-slate-700 text-[10px] uppercase font-bold tracking-wider transition-all whitespace-nowrap">
+                    <Minus size={12} /> Разд.
                  </button>
-                 
-                 <div className="flex-1"></div>
-                 
-                 <button onClick={onCommit} disabled={tree.length === 0} className="flex items-center gap-1 px-3 py-1 bg-emerald-900/30 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-800/50 rounded text-[10px] uppercase font-bold tracking-wider transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
-                    <Play size={12} fill="currentColor" /> ДЕЙСТВОВАТЬ
-                 </button>
-                 <button onClick={onClear} className="flex items-center gap-1 px-2 py-1 text-red-500 hover:text-red-300 hover:bg-red-900/10 rounded text-[10px] uppercase font-bold tracking-wider transition-all whitespace-nowrap">
+                 <div className="h-4 w-px bg-white/10 mx-1"></div>
+                 <button onClick={onClear} className="flex items-center gap-1 px-2 py-1 text-red-400 hover:text-red-300 text-[10px] uppercase font-bold tracking-wider transition-all whitespace-nowrap">
                     <Trash2 size={12} /> Очистить
                  </button>
              </div>
 
              {/* Canvas Area */}
-             <div ref={setNodeRef} className={`flex-1 p-4 overflow-y-auto transition-colors ${isOver ? 'bg-violet-900/5' : ''}`}>
-                  <SortableContext items={tree.map(n => n.id)} strategy={verticalListSortingStrategy}>
-                        {tree.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center text-slate-500 opacity-50 pointer-events-none">
-                                <Zap size={48} className="mb-2" />
-                                <span className="text-xs font-mono uppercase tracking-widest">Перетащите способности сюда</span>
-                            </div>
-                        ) : (
-                            tree.map((node, index) => (
-                                <CanvasNode 
-                                    key={node.id} 
-                                    node={node} 
-                                    participants={participants} 
-                                    onRemove={onRemove} 
-                                    onUpdateData={onUpdateData}
-                                    index={index}
-                                    onAddBranch={onAddLogicSibling}
-                                />
-                            ))
-                        )}
-                  </SortableContext>
+             <div className="flex-1 overflow-y-auto custom-scrollbar p-3 relative bg-[#020617]/40">
+                 <div ref={setNodeRef} className={`min-h-full flex flex-col pb-20 transition-colors ${isOver ? 'bg-violet-900/5' : ''}`}>
+                     {tree.length === 0 && (
+                         <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-600 pointer-events-none opacity-50">
+                             <div className="text-4xl mb-2 font-rune">†</div>
+                             <p className="text-xs font-serif italic">Перетащите способности сюда...</p>
+                         </div>
+                     )}
+                     
+                     <SortableContext items={tree.map(n => n.id)} strategy={verticalListSortingStrategy}>
+                        {tree.map((node, idx) => (
+                            <CanvasNode 
+                                key={node.id} 
+                                node={node} 
+                                participants={participants} 
+                                onRemove={onRemove} 
+                                onUpdateData={onUpdateData}
+                                onAddBranch={onAddLogicSibling}
+                                index={idx}
+                            />
+                        ))}
+                     </SortableContext>
+                 </div>
+             </div>
+
+             {/* Footer Actions */}
+             <div className="p-3 border-t border-violet-900/30 bg-[#020408]/80 backdrop-blur shrink-0">
+                 <button 
+                    onClick={onCommit}
+                    className="w-full bg-violet-700 hover:bg-violet-600 text-white font-bold py-3 rounded uppercase tracking-[0.2em] font-rune flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(139,92,246,0.3)] transition-all hover:scale-[1.01]"
+                 >
+                     <Play size={16} fill="currentColor" /> Воплотить
+                 </button>
              </div>
         </div>
     );

@@ -23,7 +23,8 @@ export const PASSIVE_TRIGGER_TRANSLATIONS: Record<string, string> = {
   "Inflict Phys Injury": "Нанесение Физ. травмы",
   "Inflict Mag Injury": "Нанесение Маг. травмы",
   "Take Phys Injury": "Получение Физ. травмы",
-  "Take Mag Injury": "Получение Маг. травмы"
+  "Take Mag Injury": "Получение Маг. травмы",
+  "Weakness/Resistance": "Слабость/Сопротивление"
 };
 
 export const DEFAULT_TIME_UNITS: TimeUnit[] = [

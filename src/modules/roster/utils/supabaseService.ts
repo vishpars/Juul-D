@@ -16,33 +16,6 @@ const normalizeBonuses = (items: any[]) => {
   }));
 };
 
-// Helper to normalize cooldowns/durations and descriptions
-const normalizeAbilities = (abilities: any[]) => {
-  if (!Array.isArray(abilities)) return [];
-  const normalizedItems = normalizeBonuses(abilities);
-  return normalizedItems.map((ab: any) => ({
-    ...ab,
-    limit: ab.limit !== undefined ? ab.limit : (ab.limits?.value || 0),
-    limit_unit: ab.limit_unit !== undefined ? ab.limit_unit : (ab.limits?.unit || ''),
-    cd: ab.cd !== undefined ? ab.cd : (ab.cooldown?.value || 0),
-    cd_unit: ab.cd_unit !== undefined ? ab.cd_unit : (ab.cooldown?.unit || ''),
-    dur: ab.dur !== undefined ? ab.dur : (ab.duration?.value || 0),
-    dur_unit: ab.dur_unit !== undefined ? ab.dur_unit : (ab.duration?.unit || ''),
-    desc_lore: ab.desc_lore !== undefined ? ab.desc_lore : (ab.desc?.lore || ''),
-    desc_mech: ab.desc_mech !== undefined ? ab.desc_mech : (ab.desc?.mech || '')
-  }));
-};
-
-const normalizeItems = (items: any[]) => {
-    if (!Array.isArray(items)) return [];
-    const normalized = normalizeBonuses(items);
-    return normalized.map((item: any) => ({
-        ...item,
-        desc_lore: item.desc_lore !== undefined ? item.desc_lore : (item.desc?.lore || ''),
-        desc_mech: item.desc_mech !== undefined ? item.desc_mech : (item.desc?.mech || '')
-    }));
-}
-
 export const getBasicActions = async (): Promise<Ability[]> => {
     try {
         const cached = CacheService.get<Ability[]>('basic_actions');
@@ -103,18 +76,23 @@ export const getAllCharacters = async (): Promise<CharacterData[]> => {
       if (!charData.passives) charData.passives = [];
       if (!charData.equipment) charData.equipment = { usable: [], wearable: [], inventory: [] };
       if (!charData.medcard) charData.medcard = { injuries: [], conditions: [] };
+      if (!charData.ability_groups) charData.ability_groups = [];
 
-      if (basicActions.length > 0) {
-          const hasBasicGroup = charData.ability_groups.some((g: any) => g.name === "Базовые Действия");
-          if (!hasBasicGroup) {
-              charData.ability_groups.unshift({
-                  name: "Базовые Действия",
-                  tags: [],
-                  abilities: basicActions,
-                  is_hidden: true
-              });
-          }
+      // FORCED INJECTION: Always ensure Basic Actions group is present, up-to-date and HIDDEN
+      const bIdx = charData.ability_groups.findIndex((g: any) => g.name === "Базовые Действия");
+      if (bIdx === -1) {
+          charData.ability_groups.unshift({
+              name: "Базовые Действия",
+              tags: [],
+              abilities: basicActions,
+              is_hidden: true // Set to true to hide from main sheet view
+          });
+      } else {
+          // Update existing group to match global definitions and force hidden
+          charData.ability_groups[bIdx].abilities = basicActions;
+          charData.ability_groups[bIdx].is_hidden = true; 
       }
+
       validChars.push(charData as CharacterData);
     });
     CacheService.set('roster_characters', validChars);
@@ -126,32 +104,17 @@ export const getAllCharacters = async (): Promise<CharacterData[]> => {
 
 export const saveCharacter = async (char: CharacterData, isAdmin: boolean = false) => {
   if (!char.id) throw new Error("Critical Error: Character ID missing.");
-
   const payload = { ...char };
-  // Clean internal runtime flags
-  // @ts-ignore
-  delete payload.identity; 
-  // @ts-ignore
-  delete payload.med_card;
-
   try {
-      // 1. Working copy
       const { error } = await supabase.from('characters').upsert({ id: char.id, data: payload });
       if (error) throw error;
-
-      // 2. Original copy (Golden backup)
       if (isAdmin) {
-          const { error: primeError } = await supabase.from('characters_prime').upsert({ id: char.id, data: payload });
-          if (primeError) console.error("Prime Save Failure:", primeError.message);
+          await supabase.from('characters_prime').upsert({ id: char.id, data: payload });
       }
-
-      // Update Cache
       const cached = CacheService.get<CharacterData[]>('roster_characters') || [];
       const index = cached.findIndex(c => c.id === char.id);
-      if (index !== -1) cached[index] = char;
-      else cached.push(char);
+      if (index !== -1) cached[index] = char; else cached.push(char);
       CacheService.set('roster_characters', cached);
-
       return true;
   } catch (error: any) {
     throw new Error(`Database Error: ${error.message}`);
@@ -160,26 +123,13 @@ export const saveCharacter = async (char: CharacterData, isAdmin: boolean = fals
 
 export const deleteCharacter = async (id: string) => {
   try {
-      // Find minions
       const { data: minions } = await supabase.from('characters').select('id').eq('data->meta->>master_id', id);
       const allIds = [id, ...(minions?.map(m => m.id) || [])];
-
-      // 1. Cleanup training (Foreign Key fix)
       await supabase.from('training').delete().in('char_id', allIds);
-      
-      // 2. Cleanup prime
       await supabase.from('characters_prime').delete().in('id', allIds);
-
-      // 3. Delete minions
-      if (minions && minions.length > 0) {
-          await supabase.from('characters').delete().in('id', minions.map(m => m.id));
-      }
-
-      // 4. Finally delete the main character
+      if (minions && minions.length > 0) await supabase.from('characters').delete().in('id', minions.map(m => m.id));
       const { error } = await supabase.from('characters').delete().eq('id', id);
       if (error) throw error;
-
-      // Update Cache
       const cached = CacheService.get<CharacterData[]>('roster_characters') || [];
       CacheService.set('roster_characters', cached.filter(c => !allIds.includes(c.id)));
   } catch (e: any) {
@@ -274,11 +224,6 @@ export const saveTrainingData = async (charId: string, limits: string, day: stri
     await supabase.from('training').upsert({ char_id: charId, limits, current: currentData });
 };
 
-// Added missing system utility exports
-
-/**
- * Fetches all tables and triggers a JSON file download in the browser.
- */
 export const exportFullBackup = async () => {
     try {
         const [chars, trigs, injuries, timeUnits, actions, tags, training] = await Promise.all([
@@ -290,38 +235,17 @@ export const exportFullBackup = async () => {
             supabase.from('battle_tags').select('*'),
             supabase.from('training').select('*')
         ]);
-
-        const backupData = {
-            characters: chars.data || [],
-            triggers: trigs.data || [],
-            injuries: injuries.data || [],
-            time_units: timeUnits.data || [],
-            basic_actions: actions.data || [],
-            battle_tags: tags.data || [],
-            training: training.data || [],
-            exported_at: new Date().toISOString()
-        };
-
+        const backupData = { characters: chars.data || [], triggers: trigs.data || [], injuries: injuries.data || [], time_units: timeUnits.data || [], basic_actions: actions.data || [], battle_tags: tags.data || [], training: training.data || [], exported_at: new Date().toISOString() };
         const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `juul_d_backup_${new Date().toISOString().split('T')[0]}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-    } catch (e: any) {
-        throw new Error("Failed to export: " + e.message);
-    }
+        const a = document.createElement('a'); a.href = url; a.download = `juul_d_backup_${new Date().toISOString().split('T')[0]}.json`; a.click(); URL.revokeObjectURL(url);
+    } catch (e: any) { throw new Error("Failed to export: " + e.message); }
 };
 
-/**
- * Parses a JSON backup file and upserts the data into respective tables.
- */
 export const importFullBackup = async (file: File): Promise<{ success: boolean; message: string }> => {
     try {
         const text = await file.text();
         const data = JSON.parse(text);
-
         if (data.characters && data.characters.length > 0) await supabase.from('characters').upsert(data.characters);
         if (data.triggers && data.triggers.length > 0) await supabase.from('triggers').upsert(data.triggers);
         if (data.injuries && data.injuries.length > 0) await supabase.from('injuries').upsert(data.injuries);
@@ -329,57 +253,30 @@ export const importFullBackup = async (file: File): Promise<{ success: boolean; 
         if (data.basic_actions && data.basic_actions.length > 0) await supabase.from('basic_actions').upsert(data.basic_actions);
         if (data.battle_tags && data.battle_tags.length > 0) await supabase.from('battle_tags').upsert(data.battle_tags);
         if (data.training && data.training.length > 0) await supabase.from('training').upsert(data.training);
-
-        // Clear local cache to ensure fresh data
         CacheService.clearAll();
-
         return { success: true, message: "Импорт завершен успешно. Кеш очищен." };
-    } catch (e: any) {
-        return { success: false, message: e.message };
-    }
+    } catch (e: any) { return { success: false, message: e.message }; }
 };
 
-/**
- * Scans storage bucket and removes files not referenced in any database table.
- */
 export const cleanUnusedStorage = async (): Promise<number> => {
     try {
-        // 1. Get all file names in bucket
         const { data: files, error: listError } = await supabase.storage.from('Juul-D-Tracker').list();
         if (listError) throw listError;
         if (!files || files.length === 0) return 0;
-
-        // 2. Get all referenced URLs from DB
-        const [{ data: chars }, { data: maps }, { data: locs }] = await Promise.all([
-            supabase.from('characters').select('data'),
-            supabase.from('maps').select('image_url'),
-            supabase.from('locations').select('img')
-        ]);
-
+        const [{ data: chars }, { data: maps }, { data: locs }] = await Promise.all([ supabase.from('characters').select('data'), supabase.from('maps').select('image_url'), supabase.from('locations').select('img') ]);
         const usedUrls = new Set<string>();
-        chars?.forEach((c: any) => {
-            if (c.data?.meta?.avatar_url) usedUrls.add(c.data.meta.avatar_url);
-        });
+        chars?.forEach((c: any) => { if (c.data?.meta?.avatar_url) usedUrls.add(c.data.meta.avatar_url); });
         maps?.forEach((m: any) => usedUrls.add(m.image_url));
         locs?.forEach((l: any) => usedUrls.add(l.img));
-
-        // 3. Find files not in referenced URLs set
         const filesToDelete: string[] = [];
         files.forEach(file => {
             const publicUrl = supabase.storage.from('Juul-D-Tracker').getPublicUrl(file.name).data.publicUrl;
-            if (!usedUrls.has(publicUrl)) {
-                filesToDelete.push(file.name);
-            }
+            if (!usedUrls.has(publicUrl)) filesToDelete.push(file.name);
         });
-
-        // 4. Perform deletion
         if (filesToDelete.length > 0) {
             const { error: delError } = await supabase.storage.from('Juul-D-Tracker').remove(filesToDelete);
             if (delError) throw delError;
         }
-
         return filesToDelete.length;
-    } catch (e: any) {
-        throw new Error("Cleanup failed: " + e.message);
-    }
+    } catch (e: any) { throw new Error("Cleanup failed: " + e.message); }
 };

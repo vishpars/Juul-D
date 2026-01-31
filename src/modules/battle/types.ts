@@ -69,6 +69,7 @@ export interface JsonPassiveItem {
   desc_lore?: string;
   dur?: number;
   dur_unit?: string;
+  trigger_ability_id?: string;
   // Generated frontend ID
   _id: string;
 }

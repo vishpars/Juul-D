@@ -21,7 +21,6 @@ const TabDebuffs: React.FC<Props> = ({ character, isEditMode, displayMode, onCha
   const [collapsedGroups, setCollapsedGroups] = useState<Record<number, boolean>>({});
   const [deleteConfirmGroupIdx, setDeleteConfirmGroupIdx] = useState<number | null>(null);
   
-  // State for linking modal
   const [linkingState, setLinkingState] = useState<{gIdx: number, iIdx: number} | null>(null);
 
   /* [DIALECT] */ const { t } = useDialect();
@@ -90,7 +89,6 @@ const TabDebuffs: React.FC<Props> = ({ character, isEditMode, displayMode, onCha
       const group = { ...next[gIdx] };
       group.items = [...group.items];
       
-      // Auto-set trigger to 'ability' and set the ID
       group.items[iIdx] = { 
           ...group.items[iIdx], 
           trigger: 'ability',
@@ -141,6 +139,27 @@ const TabDebuffs: React.FC<Props> = ({ character, isEditMode, displayMode, onCha
         { subject: t('stat_uni_short', 'УНИК'), value: getValue(unique) },
       ];
   }, [passives, t]);
+
+  const triggerOptions = useMemo(() => {
+    const baseline = [
+        { key: 'Always', label: 'Пассивно / Всегда' },
+        { key: 'ability', label: 'От способности' },
+        { key: 'on_hit', label: 'При попадании' },
+        { key: 'on_defense', label: 'При защите' }
+    ];
+    const integratedEntries = Object.entries(triggersMap);
+    const result = baseline.map(base => {
+        const fromDb = integratedEntries.find(([k]) => k.toLowerCase() === base.key.toLowerCase());
+        return fromDb ? { key: fromDb[0], label: fromDb[1] } : base;
+    });
+    const baselineKeysLower = baseline.map(b => b.key.toLowerCase());
+    integratedEntries.forEach(([key, label]) => {
+        if (!baselineKeysLower.includes(key.toLowerCase())) {
+            result.push({ key, label });
+        }
+    });
+    return result;
+  }, [triggersMap]);
 
   return (
     <div className="space-y-8 animate-fade-in relative">
@@ -193,7 +212,6 @@ const TabDebuffs: React.FC<Props> = ({ character, isEditMode, displayMode, onCha
              {!isCollapsed && (
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                    {visibleItems.map((item, iIdx) => {
-                     // RELIABLE TRIGGER DETECTION
                      const rawTrigger = String(item.trigger || '').toLowerCase().trim();
                      const isAbilityTrigger = rawTrigger === 'ability' || rawTrigger.includes('способнос');
 
@@ -218,15 +236,10 @@ const TabDebuffs: React.FC<Props> = ({ character, isEditMode, displayMode, onCha
                                         onChange={e => updateItem(gIdx, iIdx, 'trigger', e.target.value)} 
                                         className="bg-gray-800 text-xs border border-gray-700 rounded p-1 max-w-[200px] text-red-400 font-bold outline-none focus:border-red-500"
                                     >
-                                        <option value="Always">Пассивно / Всегда</option>
-                                        <option value="ability">От способности</option>
-                                        <option value="on_hit">При попадании</option>
-                                        <option value="on_defense">При защите</option>
-                                        {Object.entries(triggersMap).map(([key, label]) => (
-                                        <option key={key} value={key}>{label}</option>
+                                        {triggerOptions.map(opt => (
+                                            <option key={opt.key} value={opt.key}>{opt.label}</option>
                                         ))}
                                     </select>
-                                    
                                     <button 
                                         onClick={() => setLinkingState({ gIdx, iIdx })}
                                         className="bg-red-900/30 hover:bg-red-800 text-red-300 border border-red-700/50 rounded px-2 py-1 text-[10px] flex items-center gap-1 uppercase font-bold tracking-wider transition-colors"
@@ -237,12 +250,11 @@ const TabDebuffs: React.FC<Props> = ({ character, isEditMode, displayMode, onCha
                                 </>
                                 ) : (
                                 <span className="text-[10px] font-bold uppercase bg-gray-800 px-2 py-0.5 rounded border border-gray-700 text-red-400">
-                                    {isAbilityTrigger ? 'Бремя способности' : (triggersMap[item.trigger] || item.trigger)}
+                                    {isAbilityTrigger ? 'Бремя способности' : (triggerOptions.find(o => o.key === item.trigger)?.label || item.trigger)}
                                 </span>
                                 )}
                                 <BonusInput isEditMode={isEditMode} bonuses={item.bonuses} onChange={b => updateItem(gIdx, iIdx, 'bonuses', b)} />
                              </div>
-                             
                              {isAbilityTrigger && (
                                 <div className={`text-[10px] flex items-center gap-2 font-bold px-2 py-1 rounded bg-black/40 border border-red-900/30 ${!item.trigger_ability_id ? 'text-orange-400' : 'text-red-400'}`}>
                                     <Zap size={12} />
