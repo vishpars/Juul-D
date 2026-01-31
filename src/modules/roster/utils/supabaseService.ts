@@ -72,6 +72,12 @@ export const getAllCharacters = async (): Promise<CharacterData[]> => {
       // Hydration
       if (!charData.profile.currencies) charData.profile.currencies = { juhe: 0, jumi: 0 };
       if (!charData.meta) charData.meta = { uid: 'system', owner_link: '', avatar_url: '', save_status: true };
+      
+      // Sync ownership from DB row to ensure correct permissions
+      if (row.user_id) {
+          charData.meta.uid = row.user_id;
+      }
+
       if (!charData.stats) charData.stats = { phys: 0, magic: 0, unique: 0 };
       if (!charData.passives) charData.passives = [];
       if (!charData.equipment) charData.equipment = { usable: [], wearable: [], inventory: [] };
