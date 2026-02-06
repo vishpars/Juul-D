@@ -1,0 +1,5 @@
+{
+  "name": "RPG Sheet Parser",
+  "description": "A tool to parse HTML character sheets into structured JSON data without AI.",
+  "requestFramePermissions": []
+}
