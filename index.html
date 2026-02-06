@@ -1,0 +1,131 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a78bfa' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' fill='%234c1d95' fill-opacity='0.4' /%3E%3Cpath d='M12 2v20' stroke-opacity='0.5' /%3E%3Cpath d='M2 12h20' stroke-opacity='0.5' /%3E%3C/svg%3E" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Juul-D System</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              fantasy: ['Cinzel', 'serif'],
+              sans: ['Inter', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'],
+            },
+            colors: {
+              primary: '#8b5cf6', // violet-500
+              secondary: '#64748b', // slate-500
+              success: '#10b981', // emerald-500
+              danger: '#ef4444', // red-500
+              faction: '#6366f1', // indigo-500
+              light: '#fbbf24', // amber-400
+            },
+            animation: {
+              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'breath': 'breath 8s ease-in-out infinite',
+              'rune-flicker': 'rune-flicker 3s ease-in-out infinite',
+              'shine': 'shine 1.5s infinite',
+              'void': 'void-open 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
+              'fadeIn': 'fadeIn 0.5s ease-out forwards',
+            },
+            keyframes: {
+              breath: {
+                '0%, 100%': { opacity: '0.8' },
+                '50%': { opacity: '1' },
+              },
+              'rune-flicker': {
+                '0%, 100%': { opacity: '1' },
+                '50%': { opacity: '0.5' },
+              },
+              shine: {
+                '0%': { left: '-100%' },
+                '100%': { left: '200%' },
+              },
+              'void-open': {
+                '0%': { transform: 'scale(0.2) rotate(180deg)', opacity: '0', filter: 'blur(5px)' },
+                '100%': { transform: 'scale(1) rotate(0deg)', opacity: '1', filter: 'blur(0px)' }
+              },
+              fadeIn: {
+                '0%': { opacity: '0', transform: 'translateY(10px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' }
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      /* Global Sci-Fi Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #020617; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #4c1d95; 
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #8b5cf6; 
+      }
+      ::-webkit-scrollbar-corner {
+        background: #020617;
+      }
+      
+      /* Helper class if needed specifically */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #020617; 
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #4c1d95; 
+        border-radius: 3px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #8b5cf6; 
+      }
+    </style>
+
+  <link rel="stylesheet" href="/index.css">
+    <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.13.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "@dnd-kit/core": "https://esm.sh/@dnd-kit/core@^6.3.1",
+    "url": "https://esm.sh/url@^0.11.4",
+    "@dnd-kit/sortable": "https://esm.sh/@dnd-kit/sortable@^10.0.0",
+    "@dnd-kit/utilities": "https://esm.sh/@dnd-kit/utilities@^3.2.2",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "path": "https://esm.sh/path@^0.12.7",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.91.1",
+    "recharts": "https://esm.sh/recharts@^3.7.0",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "@vkontakte/vk-bridge": "https://esm.sh/@vkontakte/vk-bridge@^2.15.11"
+  }
+}
+</script>
+  <script type="module" crossorigin src="./assets/index-C8M5upcy.js"></script>
+</head>
+  <body class="bg-slate-950 text-slate-300 antialiased selection:bg-violet-500/30">
+    <div id="root"></div>
+</body>
+</html>
