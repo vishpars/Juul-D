@@ -104,111 +104,19 @@ const parseTimeParams = (text: string) => {
   return result;
 };
 
-// Tag Mapping Definitions
-const TAG_MAP: { tag: string, keywords: string[] }[] = [
-  { tag: 'acid', keywords: ['кислот', 'алхимическ'] },
-  { tag: 'air', keywords: ['воздух', 'воздушн', 'ветер', 'аэро'] },
-  { tag: 'alchemist', keywords: ['алхимик', 'зелье', 'веществ'] },
-  { tag: 'alcohol', keywords: ['алкогол', 'пиво', 'вино', 'опьянени', 'пьян'] },
-  { tag: 'anti_magic', keywords: ['блокировка магии', 'антимаги', 'развеивание'] },
-  { tag: 'aoe', keywords: ['по площади', 'массовый', 'взрыв', 'область'] },
-  { tag: 'attack', keywords: ['атак', 'удар', 'нанесение урон'] },
-  { tag: 'autoheal', keywords: ['регенерация здоров', 'самоисцел'] }, 
-  { tag: 'blacksmith', keywords: ['кузнец', 'ковка', 'починка'] },
-  { tag: 'blade', keywords: ['клинок', 'кинжал', 'нож', 'лезви'] },
-  { tag: 'block', keywords: ['блок', 'блокирова'] },
-  { tag: 'blood', keywords: ['кров'] },
-  { tag: 'blunt', keywords: ['дробящ', 'молот', 'дубин', 'булав'] },
-  { tag: 'buff', keywords: ['усилени', 'бафф', 'повышен'] },
-  { tag: 'chaos', keywords: ['хаос'] },
-  { tag: 'confuse', keywords: ['замешательство', 'дезориентац'] },
-  { tag: 'control', keywords: ['контроль', 'сбивани'] }, // Stun/Slow usually covered by their own tags, but 'control' is generic
-  { tag: 'curse', keywords: ['прокляти', 'порча', 'сглаз'] },
-  { tag: 'darkness', keywords: ['тьма', 'тень', 'темн', 'мрак', 'ослеплени'] },
-  { tag: 'death', keywords: ['смерт', 'труп', 'могил'] },
-  { tag: 'decay', keywords: ['разложени', 'гниени'] },
-  { tag: 'defense', keywords: ['защит', 'брон', 'резист', 'стойк'] },
-  { tag: 'demon', keywords: ['демон', 'бес'] },
-  { tag: 'diplomat', keywords: ['дипломат', 'переговор', 'убеждени'] },
-  { tag: 'dodge', keywords: ['уклонени', 'уворот'] },
-  { tag: 'dream', keywords: ['сон', 'грез'] },
-  { tag: 'earth', keywords: ['земл', 'камен', 'грунт', 'скал'] },
-  { tag: 'engineer', keywords: ['инженер', 'механизм', 'техник'] },
-  { tag: 'fear', keywords: ['страх', 'ужас', 'паник'] },
-  { tag: 'fire', keywords: ['огонь', 'огнен', 'пламя', 'поджёг'] },
-  { tag: 'fire_defense', keywords: ['сопротивление огню', 'жаростойк'] },
-  { tag: 'fire_spirit_sword', keywords: ['огненный клинок'] },
-  { tag: 'fly', keywords: ['полет', 'крылья', 'левитаци'] },
-  { tag: 'force_field', keywords: ['силовое поле', 'барьер', 'энергетический щит'] },
-  { tag: 'form', keywords: ['форма', 'стойка', 'облик', 'оборотн'] },
-  { tag: 'heal', keywords: ['исцелени', 'лечени', 'здоровь', 'медик', 'хил'] },
-  { tag: 'holy', keywords: ['свят', 'божеств', 'сакральн'] },
-  { tag: 'horse', keywords: ['верхов', 'лошад', 'конь', 'скакун'] },
-  { tag: 'hunter', keywords: ['охот', 'следопыт', 'выслежива'] },
-  { tag: 'ice', keywords: ['лед', 'ледян', 'мороз', 'холод'] },
-  { tag: 'illusion', keywords: ['иллюзи', 'фантом', 'мираж'] },
-  { tag: 'karate', keywords: ['рукопаш', 'кулак', 'единоборств'] },
-  { tag: 'language', keywords: ['язык', 'речь', 'рун', 'лингвист'] },
-  { tag: 'light', keywords: ['свет', 'сияни', 'лучезарн'] },
-  { tag: 'lightning', keywords: ['молни', 'электрич', 'разряд'] },
-  { tag: 'medic', keywords: ['медиц', 'бинт', 'врач', 'хирург'] },
-  { tag: 'melee', keywords: ['ближний бой'] },
-  { tag: 'mental', keywords: ['ментал', 'психи', 'мысл', 'телепат'] },
-  { tag: 'merchant', keywords: ['торгов', 'куп', 'прода', 'цен'] },
-  { tag: 'mind_defense', keywords: ['защита разума', 'ментальный блок'] },
-  { tag: 'movement', keywords: ['перемещени', 'движени', 'бег', 'паркур'] },
-  { tag: 'necromancy', keywords: ['некромант', 'нежить', 'воскреш'] },
-  { tag: 'no_war', keywords: ['ремесл', 'быт', 'готовк'] },
-  { tag: 'pain', keywords: ['боль', 'мучени'] },
-  { tag: 'paralysis', keywords: ['паралич', 'обездвижи'] },
-  { tag: 'parry', keywords: ['парирова', 'отбива'] },
-  { tag: 'physics', keywords: ['телекинез', 'гравитац'] },
-  { tag: 'piercing', keywords: ['колющ', 'пронзающ', 'пик', 'копье'] },
-  { tag: 'radiation', keywords: ['радиаци', 'излучени'] },
-  { tag: 'ranged', keywords: ['дальний бой', 'стрельб', 'лук', 'арбалет'] },
-  { tag: 'regeneration', keywords: ['регенераци', 'самовосстановлени'] },
-  { tag: 'ritual', keywords: ['ритуал', 'обряд'] },
-  { tag: 'sailor', keywords: ['моряк', 'плавани', 'корабл', 'судн'] },
-  { tag: 'scan', keywords: ['сканирова', 'анализ'] },
-  { tag: 'scholar', keywords: ['учен', 'знани', 'книг', 'изучени'] },
-  { tag: 'shadow', keywords: ['тень', 'мрак', 'сумереч'] },
-  { tag: 'shield', keywords: ['щит'] },
-  { tag: 'silence', keywords: ['немот', 'тишин', 'молчани'] },
-  { tag: 'singer', keywords: ['бард', 'песн', 'голос', 'вокал', 'музык'] },
-  { tag: 'sleep', keywords: ['усыплени', 'сон'] },
-  { tag: 'soul', keywords: ['душ'] },
-  { tag: 'sound', keywords: ['звук', 'акусти', 'шум'] },
-  { tag: 'speed', keywords: ['скорост', 'ускорени'] },
-  { tag: 'stealth', keywords: ['скрытн', 'незаметн', 'стелс', 'маскировк'] },
-  { tag: 'stun', keywords: ['оглушени', 'стан'] },
-  { tag: 'summon', keywords: ['призыв', 'фамильяр'] },
-  { tag: 'sword', keywords: ['меч', 'фехтова'] },
-  { tag: 'tech', keywords: ['техно', 'механи', 'кибер'] },
-  { tag: 'teleport', keywords: ['телепорт', 'скачок'] },
-  { tag: 'thief', keywords: ['вор', 'краж', 'взлом'] },
-  { tag: 'torture', keywords: ['пытк', 'допрос'] },
-  { tag: 'toxin', keywords: ['яд', 'токсин', 'отрав'] },
-  { tag: 'trap', keywords: ['ловушк', 'капкан'] },
-  { tag: 'unarmed', keywords: ['безоруж', 'рукопаш'] },
-  { tag: 'universal', keywords: ['универсал'] },
-  { tag: 'vampirism', keywords: ['вампир', 'высасывани'] },
-  { tag: 'vision', keywords: ['зрени', 'видеть', 'обнаруж'] },
-  { tag: 'watch', keywords: ['наблюдател', 'бдительн', 'вахт'] },
-  { tag: 'water', keywords: ['вод', 'жидкост', 'течени'] },
-  { tag: 'weapon', keywords: ['оружи'] }
-];
-
 const guessTags = (name: string, lore: string, mech: string): string[] => {
   const tags: Set<string> = new Set();
   const combined = (name + ' ' + lore + ' ' + mech).toLowerCase();
 
-  TAG_MAP.forEach(({ tag, keywords }) => {
-    if (keywords.some(k => combined.includes(k))) {
-      tags.add(tag);
-    }
-  });
-
-  // Post-processing for specific overrides or exclusions if necessary
+  if (combined.includes('огонь') || combined.includes('огнен')) tags.add('fire');
+  if (combined.includes('меч ')) tags.add('sword');
+  if (combined.includes('оружие')) tags.add('weapon');
+  if (combined.includes('демон')) tags.add('demon');
+  if (combined.includes('некромант') || combined.includes('нежить')) tags.add('necromancy');
+  if (combined.includes('защит') || combined.includes('щит')) tags.add('defense');
+  if (combined.includes('лечен') || combined.includes('исцел')) tags.add('heal');
+  if (combined.includes('иллюз')) tags.add('illusion');
+  if (combined.includes('ментал')) tags.add('mental');
   
   return Array.from(tags);
 };
