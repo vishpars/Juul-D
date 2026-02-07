@@ -1,5 +1,5 @@
-
 import React, { useEffect, Suspense, lazy } from 'react';
+// @ts-ignore
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import bridge from '@vkontakte/vk-bridge';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -22,13 +22,27 @@ const LoadingScreen = () => (
   </div>
 );
 
-const ProtectedRoute = () => {
+// Protected Route Component for v6
+interface ProtectedRouteProps {
+  children?: React.ReactNode;
+  isAdmin?: boolean;
+}
+
+const ProtectedRoute = ({ children, isAdmin }: ProtectedRouteProps) => {
   const { isAuthenticated } = useAuth();
 
   if (!isAuthenticated) {
     return <Navigate to="/auth" replace />;
   }
-  return <Layout />;
+
+  // Clone children to inject isAdmin prop if needed
+  return (
+    <Layout>
+      {React.isValidElement(children) 
+        ? React.cloneElement(children, { isAdmin } as any)
+        : children}
+    </Layout>
+  );
 };
 
 const AppContent = () => {
@@ -48,12 +62,29 @@ const AppContent = () => {
         <Routes>
           <Route path="/auth" element={<AuthPage />} />
           
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="roster/*" element={<RosterModule isAdmin={isAdmin} />} />
-            <Route path="battle/*" element={<BattleModule isAdmin={isAdmin} />} />
-            <Route path="lore/*" element={<LoreModule isAdmin={isAdmin} />} />
-          </Route>
+          <Route path="/" element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/roster/*" element={
+            <ProtectedRoute isAdmin={isAdmin}>
+              <RosterModule />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/battle/*" element={
+            <ProtectedRoute isAdmin={isAdmin}>
+              <BattleModule />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/lore/*" element={
+            <ProtectedRoute isAdmin={isAdmin}>
+              <LoreModule />
+            </ProtectedRoute>
+          } />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

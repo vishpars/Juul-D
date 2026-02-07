@@ -627,9 +627,9 @@ const QuestBoardPage: React.FC<QuestBoardPageProps> = ({ isAdmin }) => {
                          <label className="text-xs text-slate-400">Сфера (Тип)</label>
                          <MagicalSelect
                             value={formQuest.type} onChange={e => setFormQuest({...formQuest, type: e.target.value as QuestType})}>
-                            <option value={QuestType.PERSONAL}>Личный</option>
-                            <option value={QuestType.FACTION}>Фракционный</option>
-                            <option value={QuestType.PUBLIC}>Публичный</option>
+                            <option value={QuestType.PERSONAL} className="bg-[#020408]">Личный</option>
+                            <option value={QuestType.FACTION} className="bg-[#020408]">Фракционный</option>
+                            <option value={QuestType.PUBLIC} className="bg-[#020408]">Публичный</option>
                         </MagicalSelect>
                     </div>
                     {formQuest.type === QuestType.FACTION && (
@@ -637,11 +637,11 @@ const QuestBoardPage: React.FC<QuestBoardPageProps> = ({ isAdmin }) => {
                             <label className="text-xs text-slate-400">Аура (Мировоззрение)</label>
                             <MagicalSelect
                                 value={formQuest.alignment} onChange={e => setFormQuest({...formQuest, alignment: e.target.value as QuestAlignment})}>
-                                <option value="Neutral">Нейтральный (Фиолетовый)</option>
-                                <option value="Dark">Тьма (Индиго)</option>
-                                <option value="Light">Свет (Золотой)</option>
-                                <option value="NPC">Кровь (Красный)</option>
-                                <option value="Player">Дух (Голубой)</option>
+                                <option value="Neutral" className="bg-[#020408]">Нейтральный (Фиолетовый)</option>
+                                <option value="Dark" className="bg-[#020408]">Тьма (Индиго)</option>
+                                <option value="Light" className="bg-[#020408]">Свет (Золотой)</option>
+                                <option value="NPC" className="bg-[#020408]">Кровь (Красный)</option>
+                                <option value="Player" className="bg-[#020408]">Дух (Голубой)</option>
                             </MagicalSelect>
                         </div>
                     )}
@@ -671,10 +671,10 @@ const QuestBoardPage: React.FC<QuestBoardPageProps> = ({ isAdmin }) => {
                             value={formQuest.details?.givenBy || ''}
                             onChange={e => setFormQuest({...formQuest, details: {...formQuest.details!, givenBy: e.target.value}})}
                          >
-                             <option value="" disabled>Выберите Душу...</option>
+                             <option value="" disabled className="bg-[#020408]">Выберите Душу...</option>
                              {Object.entries(groupedCharacters).map(([faction, chars]) => (
-                                 <optgroup key={faction} label={faction}>
-                                     {(chars as Character[]).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                 <optgroup key={faction} label={faction} className="bg-[#020408]">
+                                     {(chars as Character[]).map(c => <option key={c.id} value={c.name} className="bg-[#020408]">{c.name}</option>)}
                                  </optgroup>
                              ))}
                          </MagicalSelect>

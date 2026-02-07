@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { CharacterData, TimeUnit, StatType, Bonus } from '../types';
 import { Card, StyledInput, StyledTextarea, Button, BonusInput, TagInput, TimeInput, TabRadarCharts, CommonTagToggles } from './Shared';
-import { Plus, Trash2, Clock, Hourglass, Check, X, ChevronRight, ChevronDown, Eye, EyeOff, Zap, AlertCircle, Link } from 'lucide-react';
+import { Plus, Trash2, Clock, Hourglass, Check, X, ChevronRight, ChevronDown, Eye, EyeOff, Zap, AlertCircle, Link, FolderInput } from 'lucide-react';
 import { DisplayMode } from '../App';
 import { AbilityLinkModal } from './AbilityLinkModal';
 /* [DIALECT] */ import { useDialect } from '../dialect_module/DialectContext';
@@ -14,9 +14,10 @@ interface Props {
   onChange: (p: CharacterData['passives']) => void;
   triggersMap: Record<string, string>;
   timeUnits: TimeUnit[];
+  onCharacterUpdate?: (u: Partial<CharacterData>) => void;
 }
 
-const TabDebuffs: React.FC<Props> = ({ character, isEditMode, displayMode, onChange, triggersMap, timeUnits }) => {
+const TabDebuffs: React.FC<Props> = ({ character, isEditMode, displayMode, onChange, triggersMap, timeUnits, onCharacterUpdate }) => {
   const { passives } = character;
   const [collapsedGroups, setCollapsedGroups] = useState<Record<number, boolean>>({});
   const [deleteConfirmGroupIdx, setDeleteConfirmGroupIdx] = useState<number | null>(null);
@@ -79,6 +80,67 @@ const TabDebuffs: React.FC<Props> = ({ character, isEditMode, displayMode, onCha
     group.items.splice(iIdx, 1);
     next[gIdx] = group;
     onChange(next);
+  };
+
+  const moveItem = (fromGIdx: number, targetValue: string, iIdx: number) => {
+      // Internal Move
+      if (targetValue.startsWith('group_')) {
+          const toGIdx = parseInt(targetValue.split('_')[1]);
+          const next = [...passives];
+          const sourceGroup = { ...next[fromGIdx] };
+          const targetGroup = { ...next[toGIdx] };
+          const item = sourceGroup.items[iIdx];
+
+          // Update flag based on target group type (allows moving to Passives and vice-versa)
+          item.is_flaw = !!targetGroup.is_flaw_group;
+
+          sourceGroup.items = sourceGroup.items.filter((_, i) => i !== iIdx);
+          targetGroup.items = [...targetGroup.items, item];
+
+          next[fromGIdx] = sourceGroup;
+          next[toGIdx] = targetGroup;
+          onChange(next);
+      }
+      // Cross-move to Active Ability
+      else if (targetValue.startsWith('active_') && onCharacterUpdate) {
+          const toAIdx = parseInt(targetValue.split('_')[1]);
+          const item = passives[fromGIdx].items[iIdx];
+
+          const newAbility = {
+              name: item.name,
+              bonuses: item.bonuses,
+              tags: item.tags,
+              desc_lore: item.desc_lore,
+              desc_mech: item.desc_mech,
+              cd: item.cd,
+              cd_unit: item.cd_unit,
+              dur: item.dur,
+              dur_unit: item.dur_unit,
+              is_blocked: item.is_blocked,
+              limit: 0,
+              limit_unit: ''
+          };
+
+          // 1. Remove from passives (debuffs)
+          const nextPassives = [...passives];
+          nextPassives[fromGIdx] = {
+              ...nextPassives[fromGIdx],
+              items: nextPassives[fromGIdx].items.filter((_, i) => i !== iIdx)
+          };
+
+          // 2. Add to active
+          const nextAbilities = [...character.ability_groups];
+          if (nextAbilities[toAIdx]) {
+              const targetGroup = { ...nextAbilities[toAIdx] };
+              targetGroup.abilities = [...targetGroup.abilities, newAbility];
+              nextAbilities[toAIdx] = targetGroup;
+          }
+
+          onCharacterUpdate({
+              ability_groups: nextAbilities,
+              passives: nextPassives
+          });
+      }
   };
 
   const handleAbilitySelect = (abilityName: string) => {
@@ -222,7 +284,37 @@ const TabDebuffs: React.FC<Props> = ({ character, isEditMode, displayMode, onCha
                             <StyledInput isEditMode={isEditMode} value={item.name} onChange={e => updateItem(gIdx, iIdx, 'name', e.target.value)} className="font-bold text-lg truncate block w-full text-red-300" />
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            {isEditMode && <button onClick={() => removeItem(gIdx, iIdx)} className="text-red-900 hover:text-red-500"><Trash2 size={14}/></button>}
+                            {isEditMode && (
+                                <>
+                                    {passives.length > 1 && (
+                                        <div className="relative group">
+                                            <button className="p-1 rounded text-slate-600 hover:text-red-400 transition-colors" title="Перенести в другую группу">
+                                                <FolderInput size={14} />
+                                            </button>
+                                            <select 
+                                                className="absolute inset-0 opacity-0 cursor-pointer"
+                                                value="default"
+                                                onChange={(e) => moveItem(gIdx, e.target.value, iIdx)}
+                                            >
+                                                <option value="default" disabled className="bg-[#0b0d10]">Перенести в...</option>
+                                                <optgroup label="Группы Дебаффов/Пассивок" className="bg-[#0b0d10]">
+                                                    {passives.map((grp, i) => (
+                                                        <option key={"p"+i} value={"group_"+i} disabled={i === gIdx} className="bg-[#0b0d10]">{grp.group_name || 'Group ' + (i+1)}</option>
+                                                    ))}
+                                                </optgroup>
+                                                {character.ability_groups && character.ability_groups.length > 0 && (
+                                                    <optgroup label="Активные Способности" className="bg-[#0b0d10]">
+                                                        {character.ability_groups.map((grp, i) => (
+                                                            <option key={"a"+i} value={"active_"+i} className="bg-[#0b0d10]">{grp.name}</option>
+                                                        ))}
+                                                    </optgroup>
+                                                )}
+                                            </select>
+                                        </div>
+                                    )}
+                                    <button onClick={() => removeItem(gIdx, iIdx)} className="text-red-900 hover:text-red-500"><Trash2 size={14}/></button>
+                                </>
+                            )}
                           </div>
                         </div>
 
@@ -237,7 +329,7 @@ const TabDebuffs: React.FC<Props> = ({ character, isEditMode, displayMode, onCha
                                         className="bg-gray-800 text-xs border border-gray-700 rounded p-1 max-w-[200px] text-red-400 font-bold outline-none focus:border-red-500"
                                     >
                                         {triggerOptions.map(opt => (
-                                            <option key={opt.key} value={opt.key}>{opt.label}</option>
+                                            <option key={opt.key} value={opt.key} className="bg-[#0b0d10]">{opt.label}</option>
                                         ))}
                                     </select>
                                     <button 

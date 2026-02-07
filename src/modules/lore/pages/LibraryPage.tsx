@@ -16,7 +16,6 @@ interface LibraryPageProps {
 }
 
 // --- Types ---
-// Added missing FilterStatus type
 type FilterStatus = 'all' | 'active' | 'inactive';
 
 // --- Helpers ---
@@ -146,11 +145,11 @@ const CategoryNode: React.FC<CategoryNodeProps> = ({
           {isExpanded ? <ChevronDown size={8} /> : <ChevronRight size={8} />}
         </button>
         
-        <div className="flex-1 flex items-start gap-1.5 overflow-hidden" onClick={() => onSelect(node.id)}>
+        <div className="flex-1 min-w-0 flex items-start gap-1.5" onClick={() => onSelect(node.id)}>
            <div className="mt-0.5 shrink-0">
                {isExpanded ? <FolderOpen size={10} className="text-violet-400" /> : <Folder size={10} className="text-slate-500" />}
            </div>
-           <span className="pt-0.5 font-fantasy tracking-wide break-words whitespace-normal leading-tight">{node.name}</span>
+           <span className="pt-0.5 font-fantasy tracking-wide break-words leading-tight">{node.name}</span>
            {isAdmin && node.code && <span className="text-[8px] font-mono text-slate-600 ml-auto whitespace-nowrap">{node.code}</span>}
         </div>
 
@@ -421,7 +420,7 @@ export const LibraryPage: React.FC<LibraryPageProps> = ({ isAdmin = false }) => 
             {visibleFolders.length > 0 && (
               <div className="mb-6">
                 <h4 className="text-[10px] font-bold uppercase tracking-widest text-violet-300/70 mb-2 border-b border-violet-500/20 pb-1">Разделы</h4>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 min-[550px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                   {visibleFolders.map((cat: any) => (
                       <div key={cat.id} onClick={() => setSelectedCategoryId(cat.id)} className="group bg-slate-900/40 border border-slate-700/50 hover:border-violet-500/50 hover:bg-violet-900/20 p-4 rounded-xl flex items-center gap-4 cursor-pointer transition-all shadow-md">
                           <div className="p-3 bg-white/5 rounded-lg text-slate-500 group-hover:text-violet-300 shrink-0"><Folder size={28} /></div>

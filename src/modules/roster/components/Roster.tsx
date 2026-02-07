@@ -1,12 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { CharacterData, Faction } from '../types';
 import { NPC_VOLUMES } from '../constants';
 import { Button } from './Shared';
-import { User as UserIcon, Skull, Sun, Moon, Ghost, Plus, ShieldCheck, Sword, Wand2, Crown, Link as LinkIcon, Terminal, Settings, ChevronLeft, ChevronRight, Activity, ChevronDown, Calendar } from 'lucide-react';
+import { User as UserIcon, Skull, Sun, Moon, Ghost, Plus, ShieldCheck, Sword, Wand2, Crown, Link as LinkIcon, Terminal, Settings, ChevronLeft, ChevronRight, ChevronDown, Calendar } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 /* [DIALECT] */ import { useDialect } from '../dialect_module/DialectContext';
-import { useUI } from '../context/UIContext';
 
 interface Props {
   characters: CharacterData[];
@@ -18,8 +17,7 @@ interface Props {
 
 const Roster: React.FC<Props> = ({ characters, onSelect, onCreate, onOpenSettings, onOpenTraining }) => {
   const { isAdmin } = useAuth();
-  /* [DIALECT] */ const { t, handleLetterClick, handleSlashClick, isInputMode, inputBuffer, isDialectUnlocked, isBloodMode, trackTabChange } = useDialect();
-  const { showAlert } = useUI();
+  /* [DIALECT] */ const { t, handleLetterClick, handleSlashClick, isInputMode, inputBuffer, isBloodMode, trackTabChange } = useDialect();
   
   // Lazy initialize state from LocalStorage
   const [activeTab, setActiveTab] = useState<Faction>(() => {
@@ -289,7 +287,7 @@ const Roster: React.FC<Props> = ({ characters, onSelect, onCreate, onOpenSetting
                         onChange={(e) => handleNpcVolumeChange(e.target.value)}
                         className={`bg-slate-900/50 border text-slate-200 text-sm rounded-lg w-full p-3 outline-none appearance-none font-sans ${isBloodMode ? 'border-red-900/50 focus:border-red-500' : 'border-slate-700 focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)]'}`}
                         >
-                        {NPC_VOLUMES.map(v => <option key={v} value={v}>{getVolumeLabel(v)}</option>)}
+                        {NPC_VOLUMES.map(v => <option key={v} value={v} className="bg-slate-900 text-slate-200">{getVolumeLabel(v)}</option>)}
                         </select>
                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
                     </div>

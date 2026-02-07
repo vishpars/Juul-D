@@ -53,7 +53,8 @@ export const saveBasicActions = async (actions: Ability[]) => {
 
 export const getAllCharacters = async (): Promise<CharacterData[]> => {
   try {
-    const cachedChars = CacheService.get<CharacterData[]>('roster_characters');
+    // Cache key updated to 'v2' to force a refresh on clients with stale data
+    const cachedChars = CacheService.get<CharacterData[]>('roster_characters_v2');
     if (cachedChars) return cachedChars;
 
     const [charRes, basicActions] = await Promise.all([
@@ -101,7 +102,9 @@ export const getAllCharacters = async (): Promise<CharacterData[]> => {
 
       validChars.push(charData as CharacterData);
     });
-    CacheService.set('roster_characters', validChars);
+    
+    // Save to new cache key
+    CacheService.set('roster_characters_v2', validChars);
     return validChars;
   } catch (error) {
     return [];
@@ -111,16 +114,37 @@ export const getAllCharacters = async (): Promise<CharacterData[]> => {
 export const saveCharacter = async (char: CharacterData, isAdmin: boolean = false) => {
   if (!char.id) throw new Error("Critical Error: Character ID missing.");
   const payload = { ...char };
+  
   try {
-      const { error } = await supabase.from('characters').upsert({ id: char.id, data: payload });
-      if (error) throw error;
-      if (isAdmin) {
-          await supabase.from('characters_prime').upsert({ id: char.id, data: payload });
+      // Get current auth session to attach user_id explicitly.
+      // This is required for RLS policies to validate ownership on UPSERT operations.
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUserId = session?.user?.id;
+
+      const dbRow: any = { 
+          id: char.id, 
+          data: payload 
+      };
+
+      // If we have a logged-in user, ensure the user_id column is populated.
+      // Prioritize existing meta.uid (to prevent ownership theft), fallback to current session.
+      if (currentUserId) {
+          dbRow.user_id = char.meta.uid || currentUserId;
       }
-      const cached = CacheService.get<CharacterData[]>('roster_characters') || [];
+
+      const { error } = await supabase.from('characters').upsert(dbRow);
+      
+      if (error) throw error;
+      
+      if (isAdmin) {
+          // Also sync to characters_prime if admin
+          await supabase.from('characters_prime').upsert(dbRow);
+      }
+      
+      const cached = CacheService.get<CharacterData[]>('roster_characters_v2') || [];
       const index = cached.findIndex(c => c.id === char.id);
       if (index !== -1) cached[index] = char; else cached.push(char);
-      CacheService.set('roster_characters', cached);
+      CacheService.set('roster_characters_v2', cached);
       return true;
   } catch (error: any) {
     throw new Error(`Database Error: ${error.message}`);
@@ -136,8 +160,8 @@ export const deleteCharacter = async (id: string) => {
       if (minions && minions.length > 0) await supabase.from('characters').delete().in('id', minions.map(m => m.id));
       const { error } = await supabase.from('characters').delete().eq('id', id);
       if (error) throw error;
-      const cached = CacheService.get<CharacterData[]>('roster_characters') || [];
-      CacheService.set('roster_characters', cached.filter(c => !allIds.includes(c.id)));
+      const cached = CacheService.get<CharacterData[]>('roster_characters_v2') || [];
+      CacheService.set('roster_characters_v2', cached.filter(c => !allIds.includes(c.id)));
   } catch (e: any) {
       throw new Error(`Deletion Failed: ${e.message}`);
   }

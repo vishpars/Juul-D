@@ -162,9 +162,9 @@ const SequenceBuilder: React.FC<Props> = ({ participants, draft, setDraft, onCom
                                     onChange={(e) => updateTargetReaction(tConfig.participant_id, e.target.value as ReactionType)}
                                     className="bg-console-800 border border-console-600 text-xs text-white rounded px-2 py-1 outline-none focus:border-blue-500"
                                  >
-                                     <option value="none">Нет реакции</option>
-                                     <option value="dodge">Уклонение</option>
-                                     <option value="block">Блок</option>
+                                     <option value="none" className="bg-console-800">Нет реакции</option>
+                                     <option value="dodge" className="bg-console-800">Уклонение</option>
+                                     <option value="block" className="bg-console-800">Блок</option>
                                  </select>
 
                                  <button 

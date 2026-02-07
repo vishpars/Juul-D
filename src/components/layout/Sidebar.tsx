@@ -1,5 +1,5 @@
-
 import React, { useState } from 'react';
+// @ts-ignore
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { LayoutGrid, Users, Sword, Library, LogOut, Hexagon, ChevronLeft, ChevronRight, X, RefreshCw, AlertCircle, KeyRound, Check } from 'lucide-react';
@@ -172,6 +172,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <NavLink
             key={item.path}
             to={item.path}
+            end={item.path === '/'}
             onClick={handleLinkClick}
             className={({ isActive }) => `
               group flex items-center gap-4 px-3 py-3 rounded-lg transition-all duration-300 overflow-hidden relative border border-transparent

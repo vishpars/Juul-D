@@ -282,10 +282,13 @@ const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
                   <button onClick={() => setDisplayMode('lore')} className={`p-1.5 rounded-sm transition-all ${displayMode === 'lore' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`} title="Lore Mode"> <BookOpen size={16} /> </button>
                   <button onClick={() => setDisplayMode('mech')} className={`p-1.5 rounded-sm transition-all ${displayMode === 'mech' ? 'bg-violet-900/50 text-violet-300 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`} title="Mechanic Mode"> <Calculator size={16} /> </button>
                </div>
+               
+               {/* Tag Hints - Visible to All */}
+               <button onClick={() => setIsTagHintsOpen(true)} className="p-2 text-slate-500 hover:text-violet-300 transition-colors ml-1" title="Справочник Тегов"> <Tag size={18} /> </button>
+
                {canEdit && (
                  <>
                    <div className="h-6 w-px bg-slate-800 mx-1"></div>
-                   {isEditMode && ( <button onClick={() => setIsTagHintsOpen(true)} className="p-2 bg-violet-900/20 hover:bg-violet-900/40 text-violet-300 border border-violet-500/30 rounded transition-colors" title="Справочник Тегов"> <Tag size={16} /> </button> )}
                    {isEditMode ? (
                      <>
                         {isAdmin && ( <Button variant="danger" size="sm" onClick={() => handleDelete(activeChar.id)} title="Delete"> <Trash2 size={16} /> </Button> )}
@@ -319,9 +322,9 @@ const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
 
           <div>
             {activeTab === 'equipment' && ( <TabEquipment character={activeChar} isEditMode={isEditMode} onChange={(eq) => updateActiveChar({ equipment: eq })} displayMode={displayMode} onInstantUpdate={(eq) => handleInstantUpdate(eq)} /> )}
-            {activeTab === 'abilities' && ( <TabAbilities character={activeChar} isEditMode={isEditMode} onChange={(groups) => updateActiveChar({ ability_groups: groups })} displayMode={displayMode} timeUnits={timeUnits} /> )}
-            {activeTab === 'passives' && ( <TabPassives character={activeChar} isEditMode={isEditMode} onChange={(p) => updateActiveChar({ passives: p })} displayMode={displayMode} triggersMap={triggersMap} timeUnits={timeUnits} /> )}
-            {activeTab === 'debuffs' && ( <TabDebuffs character={activeChar} isEditMode={isEditMode} onChange={(p) => updateActiveChar({ passives: p })} displayMode={displayMode} triggersMap={triggersMap} timeUnits={timeUnits} /> )}
+            {activeTab === 'abilities' && ( <TabAbilities character={activeChar} isEditMode={isEditMode} onChange={(groups) => updateActiveChar({ ability_groups: groups })} displayMode={displayMode} timeUnits={timeUnits} onCharacterUpdate={updateActiveChar} /> )}
+            {activeTab === 'passives' && ( <TabPassives character={activeChar} isEditMode={isEditMode} onChange={(p) => updateActiveChar({ passives: p })} displayMode={displayMode} triggersMap={triggersMap} timeUnits={timeUnits} onCharacterUpdate={updateActiveChar} /> )}
+            {activeTab === 'debuffs' && ( <TabDebuffs character={activeChar} isEditMode={isEditMode} onChange={(p) => updateActiveChar({ passives: p })} displayMode={displayMode} triggersMap={triggersMap} timeUnits={timeUnits} onCharacterUpdate={updateActiveChar} /> )}
             {activeTab === 'units' && ( <TabUnits master={activeChar} units={characters} onCreateUnit={createUnit} onNavigateToUnit={handleNavigateToUnit} isEditMode={isEditMode} /> )}
             {activeTab === 'medcard' && ( <TabMedCard character={activeChar} isEditMode={isEditMode} onChange={(mc) => updateActiveChar({ medcard: mc })} injuryDefinitions={injuryDefinitions} /> )}
           </div>

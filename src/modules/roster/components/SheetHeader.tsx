@@ -4,7 +4,7 @@ import { CharacterData, Faction, StatType, InjuryDefinition } from '../types';
 import { NPC_VOLUMES } from '../constants';
 import { StyledInput, StyledTextarea, StyledSelect, StatIcons, StatColors, StatBg, Button } from './Shared';
 import { downloadCharacterFile } from '../utils/storage';
-import { Coins, User, Download, Plus, Trash2, Skull, GitBranch, ShieldCheck, Upload, Loader2, Link2, Link2Off, ChevronLeft, ScrollText, BookOpen, Calculator, RotateCcw, Save, Edit3 } from 'lucide-react';
+import { Coins, User, Download, Plus, Trash2, Skull, GitBranch, ShieldCheck, Upload, Loader2, Link2, Link2Off, ChevronLeft, ScrollText, BookOpen, Calculator, RotateCcw, Save, Edit3, FileJson, X, Check } from 'lucide-react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 import { DisplayMode } from '../App';
 import { uploadAvatar } from '../utils/supabaseService';
@@ -50,6 +50,11 @@ const SheetHeader: React.FC<Props> = ({ character, isEditMode, onChange, display
   const { showAlert, showConfirm } = useUI();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  
+  // Import State
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importText, setImportText] = useState("");
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   // New Structure: profile instead of identity
   const updateProfile = (field: keyof CharacterData['profile'], val: any) => {
@@ -97,6 +102,62 @@ const SheetHeader: React.FC<Props> = ({ character, isEditMode, onChange, display
       // Reset input so same file can be selected again if needed
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  };
+
+  // --- JSON Import Logic ---
+  const processJsonImport = (jsonData: any) => {
+      try {
+          if (!jsonData.profile || !jsonData.stats) {
+              throw new Error("Неверная структура JSON (нет profile или stats)");
+          }
+
+          // Safety merge: Keep ID and UID from current session to prevent overwriting ownership
+          const safeData: Partial<CharacterData> = {
+              ...jsonData,
+              id: character.id, // FORCE KEEP CURRENT ID
+              meta: {
+                  ...jsonData.meta,
+                  uid: character.meta.uid, // FORCE KEEP CURRENT OWNER
+                  // Preserve existing avatar if new one is empty, or use new one
+                  avatar_url: jsonData.meta?.avatar_url || character.meta.avatar_url,
+                  master_id: jsonData.meta?.master_id || character.meta.master_id
+              }
+          };
+
+          onChange(safeData);
+          showAlert("Данные персонажа успешно загружены и применены.", "Импорт завершен");
+          setShowImportModal(false);
+          setImportText("");
+      } catch (e: any) {
+          showAlert("Ошибка обработки данных: " + e.message, "Ошибка");
+      }
+  };
+
+  const handleImportText = () => {
+      try {
+          const parsed = JSON.parse(importText);
+          processJsonImport(parsed);
+      } catch (e) {
+          showAlert("Невалидный JSON текст.", "Ошибка");
+      }
+  };
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+          try {
+              const parsed = JSON.parse(ev.target?.result as string);
+              processJsonImport(parsed);
+          } catch (e) {
+              showAlert("Ошибка чтения файла JSON.", "Ошибка");
+          } finally {
+              if (importFileRef.current) importFileRef.current.value = "";
+          }
+      };
+      reader.readAsText(file);
   };
 
   // Calculate Trauma (Phys Penalty) - uses 'medcard'
@@ -230,6 +291,17 @@ const SheetHeader: React.FC<Props> = ({ character, isEditMode, onChange, display
                   : <span className="text-xs font-mono font-bold">{character.profile.currencies.jumi || 0}</span>
                 }
              </div>
+
+             {/* Import Button (Only in Edit Mode) */}
+             {isEditMode && (
+                 <button 
+                    onClick={() => setShowImportModal(true)} 
+                    className="text-slate-500 hover:text-white transition-colors bg-slate-800/50 p-1 rounded hover:bg-slate-700" 
+                    title="Загрузить из JSON"
+                 >
+                    <FileJson size={18} />
+                 </button>
+             )}
 
              <button onClick={() => downloadCharacterFile(character)} className="text-slate-500 hover:text-white transition-colors" title="Скачать JSON"><Download size={18} /></button>
           </div>
@@ -403,11 +475,11 @@ const SheetHeader: React.FC<Props> = ({ character, isEditMode, onChange, display
                                       value={character.meta.master_id || ""}
                                       onChange={e => updateMeta('master_id', e.target.value || undefined)}
                                     >
-                                        <option value="">-- Нет / Свободен --</option>
+                                        <option value="" className="bg-[#0b0d10]">-- Нет / Свободен --</option>
                                         {characters
                                           .filter(c => c.id !== character.id && c.profile.faction !== Faction.NPC) 
                                           .map(c => (
-                                          <option key={c.id} value={c.id}>{c.profile.name}</option>
+                                          <option key={c.id} value={c.id} className="bg-[#0b0d10]">{c.profile.name}</option>
                                         ))}
                                     </select>
                                     
@@ -444,7 +516,7 @@ const SheetHeader: React.FC<Props> = ({ character, isEditMode, onChange, display
                                  onChange={e => updateProfile('level', parseInt(e.target.value))}
                                >
                                  {[1,2,3,4,5].map(l => (
-                                     <option key={l} value={l} disabled={l === 5 && character.profile.faction !== Faction.NPC}>
+                                     <option key={l} value={l} disabled={l === 5 && character.profile.faction !== Faction.NPC} className="bg-[#0b0d10]">
                                          {l}
                                      </option>
                                  ))}
@@ -564,6 +636,72 @@ const SheetHeader: React.FC<Props> = ({ character, isEditMode, onChange, display
           )}
         </div>
       </div>
+
+      {/* --- IMPORT MODAL --- */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in">
+           <div className="relative w-full max-w-lg bg-[#0b0d12] border border-violet-500/30 rounded-lg shadow-[0_0_50px_-10px_rgba(139,92,246,0.2)] overflow-hidden">
+                <div className="p-5 border-b border-violet-900/30 flex justify-between items-center bg-[#0b0d12]/80">
+                    <h3 className="text-lg font-serif font-bold text-violet-100 uppercase tracking-widest flex items-center gap-2">
+                        <FileJson size={18} className="text-violet-500" /> Импорт Сущности
+                    </h3>
+                    <button onClick={() => setShowImportModal(false)} className="text-slate-500 hover:text-white"><X size={20} /></button>
+                </div>
+                
+                <div className="p-6 space-y-6">
+                    <div className="p-3 bg-violet-900/10 border border-violet-500/20 rounded text-xs text-violet-200 font-serif leading-relaxed">
+                        <strong className="text-violet-400 uppercase tracking-wide">Внимание:</strong> Это действие перезапишет все характеристики, инвентарь и способности текущего персонажа. Имя, ID и Владелец будут сохранены.
+                    </div>
+
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-[10px] text-slate-500 uppercase font-bold mb-2 tracking-widest">Способ 1: Загрузка файла (.json)</label>
+                            <div className="relative">
+                                <input 
+                                    type="file" 
+                                    accept=".json" 
+                                    onChange={handleImportFile}
+                                    ref={importFileRef}
+                                    className="hidden" 
+                                    id="import-file-upload"
+                                />
+                                <label 
+                                    htmlFor="import-file-upload" 
+                                    className="flex items-center justify-center gap-3 w-full p-4 border-2 border-dashed border-slate-700 rounded-lg text-slate-400 hover:text-white hover:border-violet-500 hover:bg-violet-900/5 cursor-pointer transition-all"
+                                >
+                                    <Upload size={20} />
+                                    <span className="text-xs font-bold uppercase">Выбрать файл</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="relative flex py-2 items-center">
+                            <div className="flex-grow border-t border-slate-800"></div>
+                            <span className="flex-shrink-0 mx-4 text-slate-600 text-[10px] uppercase font-bold tracking-widest">ИЛИ</span>
+                            <div className="flex-grow border-t border-slate-800"></div>
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] text-slate-500 uppercase font-bold mb-2 tracking-widest">Способ 2: Вставка текста (JSON)</label>
+                            <textarea 
+                                className="w-full h-32 bg-[#020408] border border-slate-700 rounded p-3 text-[10px] font-mono text-emerald-400 focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.1)] outline-none resize-none custom-scrollbar"
+                                placeholder='{ "profile": { "name": "..." }, "stats": { ... } }'
+                                value={importText}
+                                onChange={(e) => setImportText(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-4 bg-[#0b0d12]/50 border-t border-violet-900/30 flex justify-end gap-3">
+                    <Button variant="secondary" size="sm" onClick={() => setShowImportModal(false)}>Отмена</Button>
+                    <Button variant="primary" size="sm" onClick={handleImportText} disabled={!importText.trim()}>
+                        <Check size={14} /> Применить
+                    </Button>
+                </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };

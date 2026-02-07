@@ -1,11 +1,15 @@
-
 import React, { useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+// @ts-ignore
+import { useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { BackgroundAmbience } from './BackgroundAmbience';
 import { Menu, Hexagon } from 'lucide-react';
 
-export const Layout: React.FC = () => {
+interface LayoutProps {
+  children?: React.ReactNode;
+}
+
+export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
@@ -67,7 +71,7 @@ export const Layout: React.FC = () => {
           ${isDesktopCollapsed ? '' : 'min-[1150px]:pl-64'}
         `}
       >
-        <Outlet />
+        {children}
       </main>
     </div>
   );

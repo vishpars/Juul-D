@@ -363,9 +363,9 @@ CREATE INDEX IF NOT EXISTS idx_quests_title_search ON quests USING gin (title gi
                            <div className="w-20">
                               <label className="block text-[9px] uppercase opacity-50 font-bold">Тип</label>
                               <select className="w-full bg-black/20 border-b border-white/10 text-xs py-1 focus:outline-none" value={item.type} onChange={e => updateInjury(idx, 'type', parseInt(e.target.value))}>
-                                 <option value={1}>Физ</option>
-                                 <option value={2}>Маг</option>
-                                 <option value={3}>Уник</option>
+                                 <option value={1} className="bg-[#0b0d10]">Физ</option>
+                                 <option value={2} className="bg-[#0b0d10]">Маг</option>
+                                 <option value={3} className="bg-[#0b0d10]">Уник</option>
                               </select>
                            </div>
                            <div className="w-16">
@@ -392,9 +392,9 @@ CREATE INDEX IF NOT EXISTS idx_quests_title_search ON quests USING gin (title gi
                         <input className="col-span-3 bg-[#0b0d10] border border-gray-800 rounded p-2 text-xs text-white" placeholder="Название" value={newInjury.label} onChange={e => setNewInjury({...newInjury, label: e.target.value})} />
                         <input type="number" className="col-span-1 bg-[#0b0d10] border border-gray-800 rounded p-2 text-xs text-white" placeholder="Знач" value={newInjury.value} onChange={e => setNewInjury({...newInjury, value: parseInt(e.target.value)})} />
                         <select className="col-span-1 bg-[#0b0d10] border border-gray-800 rounded p-2 text-xs text-white" value={newInjury.type} onChange={e => setNewInjury({...newInjury, type: parseInt(e.target.value) as any})}>
-                           <option value={1}>Физ</option>
-                           <option value={2}>Маг</option>
-                           <option value={3}>Уник</option>
+                           <option value={1} className="bg-[#0b0d10]">Физ</option>
+                           <option value={2} className="bg-[#0b0d10]">Маг</option>
+                           <option value={3} className="bg-[#0b0d10]">Уник</option>
                         </select>
                         <input type="number" className="col-span-1 bg-[#0b0d10] border border-gray-800 rounded p-2 text-xs text-white" placeholder="Стак" value={newInjury.stack || ""} onChange={e => setNewInjury({...newInjury, stack: e.target.value ? parseInt(e.target.value) : undefined})} />
                         <input className="col-span-3 bg-[#0b0d10] border border-gray-800 rounded p-2 text-xs text-white" placeholder="Описание" value={newInjury.desc} onChange={e => setNewInjury({...newInjury, desc: e.target.value})} />

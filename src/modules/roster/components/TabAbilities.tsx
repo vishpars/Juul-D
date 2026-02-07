@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { CharacterData, TimeUnit, StatType, Bonus, Ability } from '../types';
 import { Card, StyledInput, StyledTextarea, Button, BonusInput, TagInput, TimeInput, TabRadarCharts, CommonTagToggles } from './Shared';
-import { Plus, Trash2, Clock, Hourglass, ChevronDown, ChevronRight, Eye, EyeOff, Hash, Check, X, Lock, Unlock, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Clock, Hourglass, ChevronDown, ChevronRight, Eye, EyeOff, Hash, Check, X, Lock, Unlock, Sparkles, FolderInput } from 'lucide-react';
 import { DisplayMode } from '../App';
 /* [DIALECT] */ import { useDialect } from '../dialect_module/DialectContext';
 
@@ -12,9 +12,10 @@ interface Props {
   displayMode: DisplayMode;
   onChange: (groups: CharacterData['ability_groups']) => void;
   timeUnits: TimeUnit[];
+  onCharacterUpdate?: (u: Partial<CharacterData>) => void;
 }
 
-const TabAbilities: React.FC<Props> = ({ character, isEditMode, displayMode, onChange, timeUnits }) => {
+const TabAbilities: React.FC<Props> = ({ character, isEditMode, displayMode, onChange, timeUnits, onCharacterUpdate }) => {
   const { ability_groups } = character;
   const [collapsedGroups, setCollapsedGroups] = useState<Record<number, boolean>>({});
   const [deleteConfirmGroupIdx, setDeleteConfirmGroupIdx] = useState<number | null>(null);
@@ -72,6 +73,68 @@ const TabAbilities: React.FC<Props> = ({ character, isEditMode, displayMode, onC
     group.abilities.splice(aIdx, 1);
     next[gIdx] = group;
     onChange(next);
+  };
+
+  const moveAbility = (fromGIdx: number, targetValue: string, aIdx: number) => {
+      // Internal move
+      if (targetValue.startsWith('group_')) {
+          const toGIdx = parseInt(targetValue.split('_')[1]);
+          const next = [...ability_groups];
+          const sourceGroup = { ...next[fromGIdx] };
+          const targetGroup = { ...next[toGIdx] };
+          const ability = sourceGroup.abilities[aIdx];
+
+          sourceGroup.abilities = sourceGroup.abilities.filter((_, i) => i !== aIdx);
+          targetGroup.abilities = [...targetGroup.abilities, ability];
+
+          next[fromGIdx] = sourceGroup;
+          next[toGIdx] = targetGroup;
+          onChange(next);
+      } 
+      // Cross-move to Passive
+      else if (targetValue.startsWith('passive_') && onCharacterUpdate) {
+          const toPIdx = parseInt(targetValue.split('_')[1]);
+          const ability = ability_groups[fromGIdx].abilities[aIdx];
+          
+          // Convert Ability to Passive
+          const newPassive = {
+              name: ability.name,
+              bonuses: ability.bonuses,
+              tags: ability.tags,
+              desc_lore: ability.desc_lore,
+              desc_mech: ability.desc_mech,
+              cd: ability.cd,
+              cd_unit: ability.cd_unit,
+              dur: ability.dur,
+              dur_unit: ability.dur_unit,
+              is_blocked: ability.is_blocked,
+              trigger: "Always",
+              is_flaw: false // Defaults to not flaw, will be adjusted by target group type usually
+          };
+
+          // 1. Remove from abilities
+          const nextAbilities = [...ability_groups];
+          nextAbilities[fromGIdx] = {
+              ...nextAbilities[fromGIdx],
+              abilities: nextAbilities[fromGIdx].abilities.filter((_, i) => i !== aIdx)
+          };
+
+          // 2. Add to passives
+          const nextPassives = [...character.passives];
+          // Ensure target group exists
+          if (nextPassives[toPIdx]) {
+              const targetGroup = { ...nextPassives[toPIdx] };
+              // inherit is_flaw from group if possible, or keep default
+              newPassive.is_flaw = !!targetGroup.is_flaw_group;
+              targetGroup.items = [...targetGroup.items, newPassive];
+              nextPassives[toPIdx] = targetGroup;
+          }
+
+          onCharacterUpdate({
+              ability_groups: nextAbilities,
+              passives: nextPassives
+          });
+      }
   };
 
   const shouldShowLore = displayMode === 'lore';
@@ -194,6 +257,30 @@ const TabAbilities: React.FC<Props> = ({ character, isEditMode, displayMode, onC
                          </div>
                          {isEditMode && !isBasic && (
                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <div className="relative group">
+                                    <button className="p-1 rounded text-slate-600 hover:text-cyan-400 transition-colors" title="Перенести...">
+                                        <FolderInput size={14} />
+                                    </button>
+                                    <select 
+                                        className="absolute inset-0 opacity-0 cursor-pointer"
+                                        value={"default"}
+                                        onChange={(e) => moveAbility(gIdx, e.target.value, originalIndex)}
+                                    >
+                                        <option value="default" disabled className="bg-[#0b0d10]">Перенести в...</option>
+                                        <optgroup label="Школы" className="bg-[#0b0d10]">
+                                            {ability_groups.map((grp, i) => (
+                                                <option key={"g"+i} value={"group_"+i} disabled={i === gIdx} className="bg-[#0b0d10]">{grp.name}</option>
+                                            ))}
+                                        </optgroup>
+                                        {character.passives && character.passives.length > 0 && (
+                                            <optgroup label="Пассивки/Дебаффы" className="bg-[#0b0d10]">
+                                                {character.passives.map((grp, i) => (
+                                                    <option key={"p"+i} value={"passive_"+i} className="bg-[#0b0d10]">{grp.group_name || 'Группа ' + (i+1)}</option>
+                                                ))}
+                                            </optgroup>
+                                        )}
+                                    </select>
+                                </div>
                                 <button 
                                     onClick={() => updateAbility(gIdx, originalIndex, 'is_blocked', !isBlocked)}
                                     className={`p-1 rounded transition-colors ${isBlocked ? 'text-amber-500 bg-amber-900/20' : 'text-slate-600 hover:text-amber-400'}`}

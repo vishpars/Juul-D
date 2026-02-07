@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Hexagon, LogIn, Key, Mail, User, UserPlus, ArrowRight } from 'lucide-react';
+// @ts-ignore
 import { useNavigate } from 'react-router-dom';
 import { BackgroundAmbience } from '../components/layout/BackgroundAmbience';
 

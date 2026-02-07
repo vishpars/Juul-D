@@ -191,7 +191,7 @@ export const StyledSelect = ({
       {label && <span className="text-[9px] uppercase font-serif font-bold text-slate-500 tracking-widest">{label}</span>}
       <select className={`bg-[#020408] border border-violet-900/40 text-slate-200 text-sm px-2 py-1.5 focus:border-violet-500 focus:shadow-glow focus:outline-none rune-clip-r ${className}`} {...props}>
         {options.map(o => (
-          <option key={o.value} value={o.value}>{o.label}</option>
+          <option key={o.value} value={o.value} className="bg-[#020408] text-slate-200">{o.label}</option>
         ))}
       </select>
     </div>
@@ -219,8 +219,8 @@ export const TimeInput = ({
           <span className="text-slate-500 text-[10px] font-serif uppercase mr-1">{translatedLabel}:</span>
           <input type="number" value={val || ""} onChange={e => onChangeVal(parseFloat(e.target.value) || 0)} className="w-8 bg-transparent border-b border-slate-700 text-center text-slate-200 focus:border-violet-500 outline-none" placeholder="0" />
           <select value={unit} onChange={e => onChangeUnit(e.target.value)} className="bg-transparent text-slate-400 border-none p-0 focus:ring-0 max-w-[80px] text-[10px]">
-            <option value="">Ед.</option>
-            {options.map(u => <option key={u.tag} value={u.tag}>{u.label}</option>)}
+            <option value="" className="bg-[#020408]">Ед.</option>
+            {options.map(u => <option key={u.tag} value={u.tag} className="bg-[#020408]">{u.label}</option>)}
           </select>
         </>
       ) : (
@@ -332,10 +332,10 @@ export const BonusInput = ({ bonuses, onChange, isEditMode }: { bonuses: Bonus[]
                    onChange={(e) => updateBonus(i, 'stat', e.target.value)}
                    className="bg-transparent border-none p-0 text-[10px] font-bold focus:ring-0 cursor-pointer text-slate-300 uppercase"
                  >
-                   <option value={StatType.PHYS}>{t('stat_phys_short', 'ФИЗ')}</option>
-                   <option value={StatType.MAGIC}>{t('stat_mag_short', 'МАГ')}</option>
-                   <option value={StatType.UNIQUE}>{t('stat_uni_short', 'УНИК')}</option>
-                   <option value={StatType.CLEAN}>{t('stat_clean_short', 'ЧИСТ')}</option>
+                   <option value={StatType.PHYS} className="bg-[#020408]">{t('stat_phys_short', 'ФИЗ')}</option>
+                   <option value={StatType.MAGIC} className="bg-[#020408]">{t('stat_mag_short', 'МАГ')}</option>
+                   <option value={StatType.UNIQUE} className="bg-[#020408]">{t('stat_uni_short', 'УНИК')}</option>
+                   <option value={StatType.CLEAN} className="bg-[#020408]">{t('stat_clean_short', 'ЧИСТ')}</option>
                  </select>
                  <span className="text-slate-500">:</span>
                  <input 

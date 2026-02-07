@@ -2,9 +2,8 @@
 import React, { useState, useMemo } from 'react';
 import { useLocations } from '../hooks/useLocations';
 import { useMaps } from '../hooks/useMaps';
-import { MapPin, Plus, Trash2, ChevronRight, ChevronDown, FolderOpen, Folder, X, Edit2, CornerUpLeft, Home, Eye, Map as MapIcon, Link } from 'lucide-react';
+import { MapPin, Plus, Trash2, ChevronRight, ChevronDown, FolderOpen, Folder, X, Edit2, CornerUpLeft, Map as MapIcon } from 'lucide-react';
 import { Modal } from '../components/Modal';
-import { ConfirmationModal } from '../components/ConfirmationModal';
 import { Location } from '../types';
 
 interface LocationsPageProps {
@@ -22,12 +21,6 @@ const MagicalTextArea = (props: React.TextareaHTMLAttributes<HTMLTextAreaElement
     <textarea {...props} className={`w-full bg-[#020408] border border-violet-900/40 p-2.5 rounded-lg text-violet-100 placeholder-violet-900/40 focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.3)] outline-none transition-all duration-300 backdrop-blur-sm resize-none ${props.className}`} />
 );
 
-const MagicalSelect = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => (
-    <select {...props} className={`w-full bg-[#020408] border border-violet-900/40 p-2.5 rounded-lg text-violet-100 focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.3)] outline-none transition-all duration-300 appearance-none cursor-pointer ${props.className}`}>
-        {props.children}
-    </select>
-);
-
 // --- Tree Logic ---
 
 export interface LocationNode extends Location {
@@ -38,10 +31,8 @@ export const buildLocationTree = (locations: Location[]): LocationNode[] => {
     const map = new Map<string, LocationNode>();
     const roots: LocationNode[] = [];
     
-    // Initialize map
     locations.forEach(loc => map.set(loc.id, { ...loc, children: [] }));
     
-    // Build hierarchy
     locations.forEach(loc => {
         const node = map.get(loc.id);
         if (node) {
@@ -52,49 +43,49 @@ export const buildLocationTree = (locations: Location[]): LocationNode[] => {
             }
         }
     });
+    
     return roots;
 };
 
 // --- Components ---
 
-export const LocationTreeItem: React.FC<{ 
-    node: LocationNode, 
-    level: number, 
-    onSelect: (id: string) => void,
-    selectedId: string | null 
-}> = ({ node, level, onSelect, selectedId }) => {
-    const [expanded, setExpanded] = useState(false);
-    const hasChildren = node.children.length > 0;
+interface LocationTreeItemProps {
+    node: LocationNode;
+    level: number;
+    onSelect: (id: string) => void;
+    selectedId: string | null;
+}
+
+export const LocationTreeItem: React.FC<LocationTreeItemProps> = ({ node, level, onSelect, selectedId }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const hasChildren = node.children && node.children.length > 0;
+    const isSelected = selectedId === node.id;
 
     return (
         <div className="select-none">
             <div 
-                className={`
-                    flex items-center gap-2 p-2 rounded cursor-pointer transition-colors border border-transparent
-                    ${selectedId === node.id ? 'bg-violet-900/40 border-violet-500/50 text-white' : 'hover:bg-slate-800 text-slate-400'}
-                `}
-                style={{ marginLeft: `${level * 16}px` }}
+                className={`flex items-center gap-2 py-1 px-2 rounded cursor-pointer transition-all border ${isSelected ? 'bg-violet-900/30 border-violet-500/30 text-white' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
+                style={{ marginLeft: `${level * 12}px` }}
                 onClick={() => onSelect(node.id)}
             >
                 <button 
-                    onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-                    className={`p-1 rounded hover:bg-white/10 ${hasChildren ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                    onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
+                    className={`p-0.5 hover:text-white ${hasChildren ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 >
-                    {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                 </button>
-                {selectedId === node.id ? <FolderOpen size={16} className="text-violet-400" /> : <Folder size={16} />}
-                <span className="font-fantasy tracking-wide text-sm">{node.name}</span>
+                {hasChildren ? <FolderOpen size={14} className={isSelected ? "text-violet-400" : "text-slate-600"} /> : <MapPin size={14} className={isSelected ? "text-violet-400" : "text-slate-600"} />}
+                <span className="text-xs font-fantasy tracking-wide truncate">{node.name}</span>
             </div>
-            
-            {expanded && hasChildren && (
-                <div className="border-l border-slate-800 ml-4">
+            {isExpanded && hasChildren && (
+                <div>
                     {node.children.map(child => (
                         <LocationTreeItem 
                             key={child.id} 
                             node={child} 
-                            level={level + 1} 
+                            level={level + 1}
                             onSelect={onSelect} 
-                            selectedId={selectedId} 
+                            selectedId={selectedId}
                         />
                     ))}
                 </div>
@@ -103,7 +94,7 @@ export const LocationTreeItem: React.FC<{
     );
 };
 
-export interface LocationReaderProps {
+interface LocationReaderProps {
     location: Location;
     parentName?: string;
     subLocations: Location[];
@@ -112,410 +103,233 @@ export interface LocationReaderProps {
     onOpenMap: (mapId: string) => void;
 }
 
-export const LocationReader = ({ location, parentName, subLocations, onClose, onOpenSubLocation, onOpenMap }: LocationReaderProps) => {
+export const LocationReader: React.FC<LocationReaderProps> = ({ location, parentName, subLocations, onClose, onOpenSubLocation, onOpenMap }) => {
     return (
-        <div className="fixed left-0 right-0 bottom-0 top-12 md:top-0 z-50 bg-black/95 flex items-center justify-center animate-fadeIn p-0 min-[1150px]:p-6 backdrop-blur-xl" onClick={onClose}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 backdrop-blur-md animate-fadeIn" onClick={onClose}>
             <div 
-                className="relative w-full h-full min-[1150px]:max-w-6xl min-[1150px]:h-[85vh] bg-slate-950 border border-violet-900/30 rounded-none min-[1150px]:rounded-2xl shadow-2xl flex flex-col min-[1150px]:flex-row overflow-hidden"
+                className="relative w-full max-w-4xl max-h-[85vh] flex flex-col md:flex-row bg-[#0b0d12] border border-violet-900/30 rounded-xl overflow-hidden shadow-[0_0_50px_rgba(139,92,246,0.15)]"
                 onClick={e => e.stopPropagation()}
             >
-                 <button 
-                    onClick={onClose}
-                    className="absolute top-4 right-4 z-50 p-2 bg-black/60 text-white rounded-full hover:bg-red-900/80 transition-colors backdrop-blur-md"
-                >
-                    <X size={24} />
-                </button>
-
-                {/* Left: Art (Top on Mobile Portrait, Left on Desktop) */}
-                <div className="w-full min-[1150px]:w-3/5 h-1/3 min-[1150px]:h-full relative shrink-0 bg-black">
-                    <img 
-                        src={location.img} 
-                        alt={location.name} 
-                        className="w-full h-full object-cover opacity-90"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t min-[1150px]:bg-gradient-to-r from-slate-950 via-transparent to-transparent"></div>
-                    
-                    {/* Region Tag Floating */}
-                    {parentName && (
-                         <div className="absolute top-4 left-4 min-[1150px]:bottom-8 min-[1150px]:top-auto min-[1150px]:left-8 px-3 py-1 bg-black/60 backdrop-blur-md border border-violet-500/30 rounded text-violet-300 text-xs uppercase tracking-widest font-bold">
-                             {parentName}
-                         </div>
-                    )}
-
-                    {/* Open Associated Map Button */}
-                    {location.associated_map_id && (
-                        <div className="absolute bottom-4 left-4 right-4 min-[1150px]:bottom-8 min-[1150px]:left-auto min-[1150px]:right-8 flex justify-center">
-                            <button 
-                                onClick={() => onOpenMap(location.associated_map_id!)}
-                                className="bg-slate-900/80 hover:bg-violet-600/90 text-white px-6 py-3 rounded-lg flex items-center gap-3 backdrop-blur-md border border-violet-500/50 shadow-[0_0_20px_rgba(139,92,246,0.3)] transition-all font-fantasy tracking-wider uppercase group"
-                            >
-                                <MapIcon size={18} /> Открыть Карту Региона
-                                <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                            </button>
+                {/* Image Section */}
+                <div className="w-full md:w-1/3 relative h-48 md:h-auto bg-black shrink-0">
+                    {location.img ? (
+                        <img src={location.img} alt={location.name} className="w-full h-full object-cover opacity-80" />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-700 bg-slate-900">
+                            <MapPin size={48} />
                         </div>
                     )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0b0d12] to-transparent md:bg-gradient-to-r"></div>
+                    <div className="absolute bottom-4 left-4 right-4">
+                        {parentName && <div className="text-[10px] text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1"><CornerUpLeft size={10} /> {parentName}</div>}
+                        <h2 className="text-2xl font-fantasy font-bold text-white leading-tight drop-shadow-lg break-words">{location.name}</h2>
+                    </div>
                 </div>
 
-                {/* Right: Content (Bottom on Mobile Portrait, Right on Desktop) */}
-                <div className="w-full min-[1150px]:w-2/5 flex-1 p-6 md:p-10 overflow-y-auto custom-scrollbar bg-slate-950 relative">
-                     {/* Decorative Elements */}
-                     <div className="absolute top-0 right-0 p-10 opacity-10 pointer-events-none">
-                         <MapPin size={120} />
-                     </div>
+                {/* Content Section */}
+                <div className="flex-1 flex flex-col relative overflow-hidden">
+                    <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white z-10 p-1 bg-black/20 rounded-full"><X size={24} /></button>
+                    
+                    <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+                        <div className="prose prose-invert prose-sm max-w-none text-slate-300 font-serif leading-relaxed mb-6 whitespace-pre-wrap break-words">
+                            {location.description}
+                        </div>
 
-                     <h1 className="text-4xl md:text-5xl font-fantasy text-transparent bg-clip-text bg-gradient-to-r from-white to-violet-400 mb-6 drop-shadow-lg leading-tight break-words">
-                        {location.name}
-                     </h1>
-                     
-                     <div className="h-1 w-24 bg-violet-600 mb-8 shadow-[0_0_15px_rgba(139,92,246,0.6)]"></div>
+                        {location.associated_map_id && (
+                            <button 
+                                onClick={() => onOpenMap(location.associated_map_id!)}
+                                className="flex items-center gap-2 px-4 py-2 bg-violet-900/20 text-violet-300 border border-violet-500/30 rounded hover:bg-violet-900/40 transition-all w-full md:w-auto mb-6"
+                            >
+                                <MapIcon size={16} /> Открыть карту местности
+                            </button>
+                        )}
 
-                     <div className="prose prose-invert prose-violet max-w-none text-lg text-slate-300 leading-loose font-serif whitespace-pre-wrap mb-8 break-words">
-                         {location.description}
-                     </div>
-
-                     {/* Sub Locations List */}
-                     {subLocations.length > 0 && (
-                         <div className="border-t border-violet-900/30 pt-6">
-                             <h4 className="text-sm font-fantasy text-violet-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                 <FolderOpen size={14} /> Содержит Локации
-                             </h4>
-                             <div className="grid grid-cols-1 gap-2">
-                                 {subLocations.map(sub => (
-                                     <button
-                                        key={sub.id}
-                                        onClick={() => onOpenSubLocation(sub)}
-                                        className="flex items-center gap-3 p-3 rounded bg-slate-900/50 hover:bg-violet-900/20 border border-slate-800 hover:border-violet-500/40 transition-all text-left group"
-                                     >
-                                         <div className="w-10 h-10 rounded overflow-hidden shrink-0 border border-slate-700">
-                                             <img src={sub.img} alt="" className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
-                                         </div>
-                                         <div className="flex-1">
-                                             <div className="font-fantasy text-slate-300 group-hover:text-white transition-colors">{sub.name}</div>
-                                         </div>
-                                         <ChevronRight size={14} className="text-slate-600 group-hover:text-violet-400 transition-colors" />
-                                     </button>
-                                 ))}
-                             </div>
-                         </div>
-                     )}
+                        {subLocations.length > 0 && (
+                            <div>
+                                <h3 className="text-xs font-bold uppercase text-slate-500 tracking-widest mb-3 border-b border-slate-800 pb-1">Локации внутри</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {subLocations.map(sub => (
+                                        <button 
+                                            key={sub.id} 
+                                            onClick={() => onOpenSubLocation(sub)}
+                                            className="flex items-center gap-3 p-2 rounded bg-slate-900/50 border border-slate-800 hover:border-violet-500/30 hover:bg-slate-800 transition-all text-left group"
+                                        >
+                                            <div className="w-8 h-8 bg-black rounded overflow-hidden shrink-0 border border-slate-700">
+                                                {sub.img ? <img src={sub.img} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-600"><MapPin size={12}/></div>}
+                                            </div>
+                                            <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors truncate">{sub.name}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
     );
 };
 
-const LocationsPage: React.FC<LocationsPageProps> = ({ isAdmin, onNavigateToMap }) => {
+export const LocationsPage: React.FC<LocationsPageProps> = ({ isAdmin, onNavigateToMap }) => {
     const { locations, addLocation, updateLocation, deleteLocation } = useLocations();
-    const { maps } = useMaps(); // Fetch maps for association selector
+    const { maps } = useMaps(); 
 
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [formLoc, setFormLoc] = useState<Partial<Location>>({});
-    const [isTreeSelectorOpen, setIsTreeSelectorOpen] = useState(false);
-    const [confirmState, setConfirmState] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
-    
-    // Navigation State (Drill down)
-    const [currentParentId, setCurrentParentId] = useState<string | null>(null);
-
-    // Viewer State (Reader)
     const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isReaderOpen, setIsReaderOpen] = useState(false);
+    
+    // Default form state
+    const [formData, setFormData] = useState<Partial<Location>>({ name: '', description: '', img: '', associated_map_id: null });
 
     const tree = useMemo(() => buildLocationTree(locations), [locations]);
 
-    // Calculate breadcrumbs lineage
-    const lineage = useMemo(() => {
-        const path: Location[] = [];
-        let curr = currentParentId;
-        while(curr) {
-            const found = locations.find(l => l.id === curr);
-            if(found) {
-                path.unshift(found);
-                curr = found.parent || null;
-            } else {
-                break;
-            }
-        }
-        return path;
-    }, [currentParentId, locations]);
+    const handleEdit = (loc: Location) => {
+        setFormData(loc);
+        setIsEditModalOpen(true);
+    };
 
-    // Filter displayed locations based on current folder
-    const displayedLocations = useMemo(() => {
-        return locations.filter(l => l.parent === (currentParentId || null));
-    }, [locations, currentParentId]);
+    const handleCreate = (parentId?: string) => {
+        setFormData({ name: '', description: '', img: '', parent: parentId || null, associated_map_id: null });
+        setIsEditModalOpen(true);
+    };
 
-    const handleFormSubmit = (e: React.FormEvent) => {
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if(formLoc.name && formLoc.description) {
-            const payload = { ...formLoc };
-            // If adding new in current view, default parent to current view
-            if (!payload.id && !payload.parent && currentParentId) {
-                payload.parent = currentParentId;
-            }
-
-            if (payload.id) {
-                // Edit
-                updateLocation(payload.id, payload);
-            } else {
-                // Create
-                addLocation(payload as Omit<Location, 'id'>);
-            }
-            setIsModalOpen(false);
-            setFormLoc({});
-        }
-    };
-
-    const handleOpenEdit = (loc: Location) => {
-        setFormLoc({ ...loc });
-        setIsModalOpen(true);
-    };
-
-    const handleDeleteLocation = (id: string) => {
-        setConfirmState({
-            isOpen: true,
-            title: "Удалить Локацию",
-            message: "Вы уверены? Это действие необратимо.",
-            onConfirm: () => deleteLocation(id)
-        });
-    };
-
-    const handleOpenCreate = () => {
-        setFormLoc({ parent: currentParentId });
-        setIsModalOpen(true);
-    };
-
-    const getParentName = (parentId?: string | null) => {
-        if (!parentId) return null;
-        return locations.find(l => l.id === parentId)?.name;
-    };
-
-    const handleOpenSubLocation = (loc: Location) => {
-        // If sub-location has children, go to folder view, else open reader
-        const hasChildren = locations.some(l => l.parent === loc.id);
-        if (hasChildren) {
-            setSelectedLocation(null);
-            setCurrentParentId(loc.id);
+        if (formData.id) {
+            await updateLocation(formData.id, formData);
         } else {
-            setSelectedLocation(loc);
+            await addLocation(formData as any);
         }
+        setIsEditModalOpen(false);
     };
 
     return (
-        <div className="h-full flex flex-col">
-            
-            {selectedLocation && (
-                <LocationReader 
-                    location={selectedLocation} 
-                    parentName={getParentName(selectedLocation.parent) || undefined}
-                    subLocations={locations.filter(l => l.parent === selectedLocation.id)}
-                    onClose={() => setSelectedLocation(null)} 
-                    onOpenSubLocation={handleOpenSubLocation}
-                    onOpenMap={onNavigateToMap}
-                />
-            )}
-
-            {/* Unified Header with Breadcrumbs included */}
-            <div className="bg-slate-900/90 backdrop-blur-md border-b border-violet-500/20 p-3 sticky top-0 z-20 flex flex-wrap justify-between items-center shadow-lg shrink-0 min-h-[3.5rem] gap-2">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 overflow-hidden w-full md:w-auto">
-                    <h2 className="text-xl font-fantasy text-transparent bg-clip-text bg-gradient-to-r from-violet-200 to-fuchsia-200 flex items-center gap-2 drop-shadow-sm shrink-0 pr-4 sm:border-r border-white/10">
-                        <MapPin className="text-violet-500 drop-shadow-[0_0_8px_rgba(139,92,246,0.8)]" size={20} /> Известный Мир
-                    </h2>
-
-                    {/* Breadcrumb Navigation */}
-                    <div className="flex items-center gap-1 text-xs font-fantasy overflow-x-auto custom-scrollbar pb-1">
-                        <button 
-                            onClick={() => setCurrentParentId(null)}
-                            className={`flex items-center gap-1 transition-colors whitespace-nowrap ${!currentParentId ? 'text-violet-400 font-bold' : 'text-slate-500 hover:text-white'}`}
-                        >
-                            <Home size={12} /> Материальный План
-                        </button>
-                        {lineage.map((loc, idx) => (
-                            <React.Fragment key={loc.id}>
-                                <ChevronRight size={10} className="text-slate-600 shrink-0" />
-                                <button 
-                                    onClick={() => setCurrentParentId(loc.id)}
-                                    className={`whitespace-nowrap transition-colors ${idx === lineage.length - 1 ? 'text-violet-400 font-bold' : 'text-slate-500 hover:text-white'}`}
-                                >
-                                    {loc.name}
-                                </button>
-                            </React.Fragment>
-                        ))}
-                    </div>
+        <div className="h-full flex relative overflow-hidden">
+            {/* Sidebar */}
+            <div className="absolute inset-y-0 left-0 w-full md:w-64 bg-slate-950/90 md:bg-slate-950/50 backdrop-blur-md border-r border-violet-900/20 flex flex-col z-20 transition-transform md:translate-x-0 -translate-x-full">
+                {/* Note: Mobile handling for sidebar is simplified here, assuming larger screen or external toggle for now, similar to other modules */}
+                <div className="p-3 border-b border-violet-900/20 flex justify-between items-center shrink-0">
+                    <span className="text-sm font-bold text-violet-300 font-fantasy uppercase">Локации</span>
+                    {isAdmin && <button onClick={() => handleCreate()} className="text-slate-400 hover:text-white"><Plus size={16} /></button>}
                 </div>
-
-                {isAdmin && (
-                    <button onClick={handleOpenCreate} className="ml-auto bg-violet-900/30 hover:bg-violet-800/50 text-violet-100 px-3 py-1.5 rounded-lg flex gap-2 items-center border border-violet-500/30 transition-all font-fantasy uppercase tracking-wider text-[10px] md:text-xs">
-                        <Plus size={14} /> Открыть
-                    </button>
-                )}
-            </div>
-
-            {/* Main Content */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 relative">
-                {/* Back Button (if deep) */}
-                {currentParentId && (
-                    <button 
-                        onClick={() => {
-                            const curr = locations.find(l => l.id === currentParentId);
-                            setCurrentParentId(curr?.parent || null);
-                        }}
-                        className="mb-4 flex items-center gap-2 text-slate-400 hover:text-violet-300 transition-colors text-xs font-bold uppercase tracking-wider"
-                    >
-                        <CornerUpLeft size={14} /> Вернуться в Регион
-                    </button>
-                )}
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 pb-10">
-                    {displayedLocations.length === 0 ? (
-                        <div className="col-span-full text-center py-20 text-slate-600 italic font-fantasy border-2 border-dashed border-slate-800 rounded-xl">
-                            Неизведанная Территория...
-                        </div>
-                    ) : (
-                        displayedLocations.map(loc => {
-                            const hasChildren = locations.some(l => l.parent === loc.id);
-                            
-                            return (
-                                <div key={loc.id} className="group relative flex flex-col h-auto rounded-xl shadow-lg bg-black/40 backdrop-blur-sm border border-slate-800/50 hover:border-violet-500/50 transition-all hover:-translate-y-2">
-                                    
-                                    {/* Image Container - SEPARATED for overflow control */}
-                                    <div 
-                                        onClick={() => setSelectedLocation(loc)} 
-                                        className="relative h-64 w-full cursor-pointer overflow-hidden rounded-t-xl"
-                                    >
-                                        <img 
-                                            src={loc.img} 
-                                            alt={loc.name} 
-                                            className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110 opacity-60 group-hover:opacity-100" 
-                                        />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-90"></div>
-                                        
-                                        {/* Icon Indicator */}
-                                        <div className="absolute top-2 left-2 z-20 bg-black/60 p-1.5 rounded-full text-violet-400 border border-violet-500/30 backdrop-blur-md shadow-[0_0_10px_rgba(139,92,246,0.5)]">
-                                            {hasChildren ? <FolderOpen size={14} /> : <Eye size={14} />}
-                                        </div>
-
-                                        {/* Actions (Admin Only) */}
-                                        {isAdmin && (
-                                            <div className="absolute top-2 right-2 flex gap-1 z-20 opacity-0 group-hover:opacity-100 transition-all">
-                                                <button 
-                                                    onClick={(e) => { e.stopPropagation(); handleOpenEdit(loc); }}
-                                                    className="p-2 bg-black/60 text-slate-400 hover:text-white rounded-full hover:bg-violet-900/50"
-                                                >
-                                                    <Edit2 size={14} />
-                                                </button>
-                                                <button 
-                                                    onClick={(e) => { e.stopPropagation(); handleDeleteLocation(loc.id); }}
-                                                    className="p-2 bg-black/60 text-slate-400 hover:text-red-400 rounded-full hover:bg-red-900/50"
-                                                >
-                                                    <Trash2 size={14} />
-                                                </button>
-                                            </div>
-                                        )}
-
-                                        {/* Minimal Content Overlay */}
-                                        <div className="absolute bottom-0 p-5 w-full z-10 pointer-events-none">
-                                            <div className="h-0.5 w-12 bg-violet-500 mb-3 shadow-[0_0_10px_rgba(139,92,246,1)] group-hover:w-full transition-all duration-700"></div>
-                                            <h3 className="text-xl font-fantasy text-slate-200 group-hover:text-white transition-colors drop-shadow-md truncate flex items-center gap-2">
-                                                {loc.name}
-                                            </h3>
-                                            <span className="text-[10px] text-slate-500 uppercase tracking-widest">{hasChildren ? "Регион" : "Локация"}</span>
-                                        </div>
-                                        
-                                        {/* Hover Border Glow */}
-                                        <div className="absolute inset-0 border-2 border-transparent group-hover:border-violet-500/30 rounded-t-xl pointer-events-none transition-colors duration-500 z-10"></div>
-                                    </div>
-
-                                    {/* Folder Navigation Footer (Drill Down) - OUTSIDE overflow container */}
-                                    {hasChildren && (
-                                        <button 
-                                            onClick={(e) => { e.stopPropagation(); setCurrentParentId(loc.id); }}
-                                            className="w-full bg-slate-900 hover:bg-violet-900/40 border-t border-slate-700 hover:border-violet-500/50 p-3 flex items-center justify-center gap-2 text-xs font-fantasy uppercase tracking-wider text-slate-400 hover:text-white transition-all group/btn rounded-b-xl relative z-20"
-                                        >
-                                            Войти в Регион <ChevronRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
-                                        </button>
-                                    )}
-                                    {/* Spacer if no button, to round corners */}
-                                    {!hasChildren && <div className="hidden"></div>}
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
-            </div>
-
-            {/* Create/Edit Modal */}
-            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={formLoc.id ? "Редактировать Локацию" : "Новая Локация"}>
-                <form onSubmit={handleFormSubmit} className="space-y-4">
-                    <MagicalInput required placeholder="Название" 
-                        value={formLoc.name || ''} onChange={e => setFormLoc({...formLoc, name: e.target.value})} />
-                    
-                    {/* Parent Selector */}
-                    <div className="relative">
-                        <button 
-                            type="button"
-                            onClick={() => setIsTreeSelectorOpen(true)}
-                            className="w-full bg-[#020408] border border-violet-900/40 p-2.5 rounded-lg text-violet-100 flex items-center justify-between hover:border-violet-500 transition-colors"
-                        >
-                            <span className={!formLoc.parent ? 'text-violet-900/40' : ''}>
-                                {formLoc.parent ? getParentName(formLoc.parent) : "Выберите Регион..."}
-                            </span>
-                            <FolderOpen size={16} className="text-violet-500" />
-                        </button>
-                    </div>
-
-                    {/* Associated Map Selector */}
-                    <div className="space-y-1">
-                        <label className="text-xs text-slate-500 uppercase tracking-wide">Связанная Карта</label>
-                        <MagicalSelect 
-                            value={formLoc.associated_map_id || ''}
-                            onChange={(e) => setFormLoc({...formLoc, associated_map_id: e.target.value || null})}
-                        >
-                            <option value="">-- Нет Карты --</option>
-                            {maps.map(m => (
-                                <option key={m.id} value={m.id}>{m.name}</option>
-                            ))}
-                        </MagicalSelect>
-                    </div>
-
-                    <MagicalInput placeholder="URL Изображения" 
-                        value={formLoc.img || ''} onChange={e => setFormLoc({...formLoc, img: e.target.value})} />
-                    <MagicalTextArea required placeholder="Описание" rows={3} 
-                        value={formLoc.description || ''} onChange={e => setFormLoc({...formLoc, description: e.target.value})} />
-                    
-                    <button type="submit" className="w-full mt-4 group relative px-6 py-3 bg-slate-900 border-2 border-violet-500/50 shadow-[0_0_15px_rgba(139,92,246,0.2)] text-violet-100 font-fantasy tracking-[0.2em] uppercase hover:bg-violet-900/40 hover:border-violet-400 hover:shadow-[0_0_25px_rgba(139,92,246,0.6)] transition-all duration-300 overflow-hidden">
-                        <span className="relative z-10">{formLoc.id ? "Обновить Записи" : "Записать Локацию"}</span>
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-violet-400/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
-                    </button>
-                </form>
-            </Modal>
-
-            {/* Tree Selection Modal */}
-            <Modal isOpen={isTreeSelectorOpen} onClose={() => setIsTreeSelectorOpen(false)} title="Выберите Родительский Регион">
-                <div className="h-[50vh] overflow-y-auto custom-scrollbar border border-slate-800 rounded bg-slate-900/50 p-4 space-y-1">
-                     <button 
-                        onClick={() => { setFormLoc({...formLoc, parent: null}); setIsTreeSelectorOpen(false); }}
-                        className="w-full text-left p-2 hover:bg-slate-800 text-slate-400 text-sm mb-2 border-b border-slate-800 pb-2"
-                     >
-                        [Материальный План]
-                     </button>
-                     {tree.map(node => (
-                         <LocationTreeItem 
+                <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
+                    {tree.map(node => (
+                        <LocationTreeItem 
                             key={node.id} 
                             node={node} 
                             level={0} 
-                            onSelect={(id) => { setFormLoc({...formLoc, parent: id}); setIsTreeSelectorOpen(false); }}
-                            selectedId={formLoc.parent || null}
-                         />
-                     ))}
+                            onSelect={(id) => {
+                                const loc = locations.find(l => l.id === id);
+                                if(loc) {
+                                    setSelectedLocation(loc);
+                                    setIsReaderOpen(true);
+                                }
+                            }}
+                            selectedId={selectedLocation?.id || null} 
+                        />
+                    ))}
                 </div>
+            </div>
+            
+            {/* Desktop persistent sidebar (hacky duplication for layout stability without refactoring Layout) */}
+            <div className="hidden md:flex w-64 bg-slate-950/50 border-r border-violet-900/20 flex-col shrink-0">
+                 <div className="p-3 border-b border-violet-900/20 flex justify-between items-center shrink-0">
+                    <span className="text-sm font-bold text-violet-300 font-fantasy uppercase">Локации</span>
+                    {isAdmin && <button onClick={() => handleCreate()} className="text-slate-400 hover:text-white"><Plus size={16} /></button>}
+                </div>
+                <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
+                    {tree.map(node => (
+                        <LocationTreeItem 
+                            key={node.id} 
+                            node={node} 
+                            level={0} 
+                            onSelect={(id) => {
+                                const loc = locations.find(l => l.id === id);
+                                if(loc) {
+                                    setSelectedLocation(loc);
+                                    setIsReaderOpen(true);
+                                }
+                            }}
+                            selectedId={selectedLocation?.id || null} 
+                        />
+                    ))}
+                </div>
+            </div>
+
+            {/* Main Area */}
+            <div className="flex-1 bg-black/20 relative">
+                {!isReaderOpen && (
+                    <div className="absolute inset-0 flex items-center justify-center text-slate-600 font-fantasy p-4 text-center">
+                        Выберите локацию для просмотра
+                    </div>
+                )}
+                {isReaderOpen && selectedLocation && (
+                    <LocationReader 
+                        location={selectedLocation}
+                        parentName={locations.find(l => l.id === selectedLocation.parent)?.name}
+                        subLocations={locations.filter(l => l.parent === selectedLocation.id)}
+                        onClose={() => setIsReaderOpen(false)}
+                        onOpenSubLocation={(loc) => setSelectedLocation(loc)}
+                        onOpenMap={onNavigateToMap}
+                    />
+                )}
+            </div>
+
+            {/* Edit/Create Modal */}
+            <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={formData.id ? "Ред. Локацию" : "Новая Локация"}>
+                <form onSubmit={handleSave} className="space-y-4">
+                    <MagicalInput required placeholder="Название" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                    <MagicalInput placeholder="URL Изображения" value={formData.img || ''} onChange={e => setFormData({...formData, img: e.target.value})} />
+                    
+                    <div className="space-y-1">
+                        <label className="text-xs text-slate-500">Привязать Карту</label>
+                        <select 
+                            className="w-full bg-[#020408] border border-violet-900/40 p-2 rounded-lg text-violet-100 outline-none focus:border-violet-500"
+                            value={formData.associated_map_id || ''}
+                            onChange={e => setFormData({...formData, associated_map_id: e.target.value || null})}
+                        >
+                            <option value="" className="bg-[#020408]">-- Нет --</option>
+                            {maps.map(m => <option key={m.id} value={m.id} className="bg-[#020408]">{m.name}</option>)}
+                        </select>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-xs text-slate-500">Родительская Локация</label>
+                        <select 
+                            className="w-full bg-[#020408] border border-violet-900/40 p-2 rounded-lg text-violet-100 outline-none focus:border-violet-500"
+                            value={formData.parent || ''}
+                            onChange={e => setFormData({...formData, parent: e.target.value || null})}
+                        >
+                            <option value="" className="bg-[#020408]">-- Корень --</option>
+                            {locations.filter(l => l.id !== formData.id).map(l => <option key={l.id} value={l.id} className="bg-[#020408]">{l.name}</option>)}
+                        </select>
+                    </div>
+
+                    <MagicalTextArea required rows={5} placeholder="Описание..." value={formData.description || ''} onChange={e => setFormData({...formData, description: e.target.value})} />
+                    
+                    <div className="flex gap-2 pt-2">
+                        {formData.id && (
+                            <button type="button" onClick={async () => {
+                                if(confirm("Удалить локацию?")) {
+                                    await deleteLocation(formData.id!);
+                                    setIsEditModalOpen(false);
+                                    setIsReaderOpen(false);
+                                }
+                            }} className="p-3 bg-red-900/20 text-red-400 border border-red-900/50 rounded hover:bg-red-900/40"><Trash2 size={18} /></button>
+                        )}
+                        <button type="submit" className="flex-1 bg-violet-700 hover:bg-violet-600 text-white font-bold py-3 rounded uppercase tracking-widest font-fantasy">Сохранить</button>
+                    </div>
+                </form>
             </Modal>
 
-            <ConfirmationModal 
-                isOpen={confirmState.isOpen}
-                title={confirmState.title}
-                message={confirmState.message}
-                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
-                onConfirm={confirmState.onConfirm}
-                isDangerous
-            />
+            {/* Admin Controls Overlay for Reader */}
+            {isReaderOpen && selectedLocation && isAdmin && (
+                <div className="absolute top-4 right-16 z-[110] flex gap-2">
+                    <button onClick={() => handleEdit(selectedLocation)} className="p-2 bg-slate-900/80 text-white rounded-full hover:bg-violet-600 transition-colors shadow-lg border border-white/10">
+                        <Edit2 size={16} />
+                    </button>
+                </div>
+            )}
         </div>
     );
 };

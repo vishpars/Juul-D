@@ -77,9 +77,9 @@ const WikiCategoryNode: React.FC<{
                  <button onClick={(e) => { e.stopPropagation(); onToggleExpand(node.id); }} className={`p-0.5 rounded hover:bg-white/10 mt-0.5 ${hasChildren || hasArticles ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                     {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                 </button>
-                <div className="flex items-start gap-2 flex-1 overflow-hidden">
+                <div className="flex items-start gap-2 flex-1 min-w-0">
                     <div className="mt-0.5 shrink-0">{isExpanded ? <FolderOpen size={14} className="text-violet-500" /> : <Folder size={14} className="text-slate-600" />}</div>
-                    <span className="font-fantasy tracking-wide text-sm break-words whitespace-normal leading-tight pt-0.5">{node.name}</span>
+                    <span className="font-fantasy tracking-wide text-sm break-words leading-tight pt-0.5">{node.name}</span>
                 </div>
                 {isAdmin && (
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 mt-0.5">
@@ -92,7 +92,7 @@ const WikiCategoryNode: React.FC<{
                     {nodeArticles.map(article => (
                         <div key={article.id} onClick={(e) => { e.stopPropagation(); onSelectArticle(article.id); }} className={`pl-6 py-1 pr-2 text-sm flex items-start gap-2 cursor-pointer transition-colors border-l-2 -ml-[1px] ${selectedArticleId === article.id ? 'text-violet-300 border-violet-500 bg-violet-500/5 font-bold' : 'text-slate-500 border-transparent hover:text-slate-300 hover:border-slate-700'}`}>
                             <div className="mt-0.5 shrink-0"><FileText size={14} className={selectedArticleId === article.id ? 'text-violet-400' : 'text-slate-600'} /></div>
-                            <span className="font-serif italic break-words whitespace-normal leading-tight">{article.name}</span>
+                            <span className="font-serif italic break-words leading-tight">{article.name}</span>
                         </div>
                     ))}
                     {node.children.map(child => (
@@ -202,8 +202,9 @@ const WikiPage: React.FC<WikiPageProps> = ({ isAdmin }) => {
             ) : (
                 <div className="space-y-6">
                     <h2 className="text-3xl font-fantasy text-violet-200 mb-6 border-b border-violet-500/30 pb-2 flex items-center gap-3">{selectedCategoryId ? categories.find(c => c.id === selectedCategoryId)?.name : "Главный Архив"}</h2>
+                    
                     {visibleSubcategories.length > 0 && (
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                        <div className="grid grid-cols-1 min-[550px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                             {visibleSubcategories.map(cat => (
                                 <div key={cat.id} onClick={() => handleSelectCategory(cat.id)} className="group bg-slate-900/40 border border-slate-700/50 hover:border-violet-500/50 p-4 rounded-xl flex items-center gap-4 cursor-pointer transition-all shadow-md">
                                     <div className="p-3 bg-white/5 rounded-lg text-slate-500 group-hover:text-violet-300 shrink-0"><Folder size={28} /></div>
@@ -211,6 +212,22 @@ const WikiPage: React.FC<WikiPageProps> = ({ isAdmin }) => {
                                 </div>
                             ))}
                         </div>
+                    )}
+
+                    {categoryArticles.length > 0 && (
+                        <div className="grid grid-cols-1 gap-2">
+                            <h3 className="text-sm font-bold uppercase text-slate-500 tracking-widest mb-2 mt-4 border-b border-white/5 pb-1">Статьи</h3>
+                            {categoryArticles.map(article => (
+                                <div key={article.id} onClick={() => handleSelectArticle(article.id)} className="flex items-center gap-3 p-3 bg-slate-900/30 border border-slate-800 rounded hover:bg-violet-900/20 hover:border-violet-500/30 cursor-pointer transition-all group">
+                                    <FileText size={18} className="text-slate-500 group-hover:text-violet-400" />
+                                    <span className="font-serif text-slate-300 group-hover:text-white">{article.name}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {visibleSubcategories.length === 0 && categoryArticles.length === 0 && (
+                        <div className="text-center text-slate-600 italic py-10">В этом разделе пусто...</div>
                     )}
                 </div>
             )}

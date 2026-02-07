@@ -1,23 +1,11 @@
 
 import React, { useMemo } from 'react';
+// @ts-ignore
 import { Link } from 'react-router-dom';
 import { Users, Sword, Library, ArrowRight, Activity, ShieldCheck, Sparkles, AlertTriangle, Ghost, User as UserIcon } from 'lucide-react';
 import { ModuleCardProps } from '../types';
 import { useAuth } from '../context/AuthContext';
-
-// --- SPLASHES DATA ---
-// Массив сплешей для главной страницы
-const SPLASHES = [
-    { text: "Не забудь обновить сейв.", type: 'helpful' },
-    { text: "Зелья лечения имеют срок годности.", type: 'helpful' },
-    { text: "Бестиарий пополнился новыми ужасами.", type: 'helpful' },
-    { text: "За тобой следят из монитора.", type: 'harmful' },
-    { text: "Твой персонаж хочет умереть.", type: 'harmful' },
-    { text: "Гоблин украл твой носок.", type: 'funny' },
-    { text: "Здесь НЕ могла быть ваша реклама.", type: 'funny' },
-    { text: "Система перегружена пафосом.", type: 'funny' },
-    { text: "Котики правят миром.", type: 'funny' },
-];
+import { SPLASHES } from '../data/splashes';
 
 const ModuleCard: React.FC<ModuleCardProps & { color: string }> = ({ title, description, path, icon: Icon, color }) => {
   // Dynamic color classes based on prop
@@ -107,11 +95,20 @@ const ModuleCard: React.FC<ModuleCardProps & { color: string }> = ({ title, desc
 export const Dashboard: React.FC = () => {
   const { isAdmin, user } = useAuth();
 
-  // Pick random splash based on date to keep it consistent for the day
+  // Pick random splash based on current hour to keep it stable for 60 mins,
+  // but use a hash multiplier to "scatter" the index so we don't iterate sequentially
+  // through grouped types (Helpful -> Harmful -> Funny).
   const dailySplash = useMemo(() => {
-      const date = new Date();
-      const seed = date.getDate() + date.getMonth() + date.getFullYear(); // Simple seed
-      const index = seed % SPLASHES.length;
+      const now = new Date();
+      // Total hours since Jan 1, 1970
+      const totalHours = Math.floor(now.getTime() / (1000 * 60 * 60));
+      
+      // Multiplicative hashing (Knuth's constant)
+      // This scatters the index randomly across the array length
+      // ensuring we jump between different types even if array is sorted.
+      const seed = totalHours * 2654435761; 
+      
+      const index = Math.abs(seed % SPLASHES.length);
       return SPLASHES[index];
   }, []);
 
@@ -187,7 +184,7 @@ export const Dashboard: React.FC = () => {
         {/* Header Section */}
         <div className="flex flex-col min-[1150px]:flex-row justify-between items-start min-[1150px]:items-end gap-6 border-b border-white/10 pb-6">
             <div className="w-full min-[1150px]:w-auto">
-                <div className={`flex items-center gap-2 mb-2 animate-fadeIn ${getSplashColor(dailySplash.type)}`}>
+                <div className={`inline-flex items-center gap-2 mb-4 px-3 py-1.5 rounded-lg bg-slate-950/50 backdrop-blur-sm border border-white/10 animate-fadeIn ${getSplashColor(dailySplash.type)}`}>
                     {getSplashIcon(dailySplash.type)}
                     <span className="text-xs font-mono uppercase tracking-widest">{dailySplash.text}</span>
                 </div>

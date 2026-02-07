@@ -304,8 +304,8 @@ const CanvasNode: React.FC<CanvasNodeProps> = ({ node, participants, onRemove, o
                                 onClick={(e) => e.stopPropagation()} // Prevent drag start
                                 onPointerDown={(e) => e.stopPropagation()}
                             >
-                                <option value="">Без оружия</option>
-                                {actor.equipment.usable.map(w => <option key={w._id} value={w._id}>{w.name}</option>)}
+                                <option value="" className="bg-[#0b0d10]">Без оружия</option>
+                                {actor.equipment.usable.map(w => <option key={w._id} value={w._id} className="bg-[#0b0d10]">{w.name}</option>)}
                             </select>
                         </div>
                       )}
