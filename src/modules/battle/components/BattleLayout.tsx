@@ -10,6 +10,8 @@ interface Props {
   currentRound: number;
 }
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://vadwslmqajbbmklrhnzu.supabase.co';
+
 const BattleLayout: React.FC<Props> = ({ col1, col2, col3, onNextRound, currentRound }) => {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans p-4 flex flex-col h-screen overflow-hidden relative">
@@ -17,7 +19,7 @@ const BattleLayout: React.FC<Props> = ({ col1, col2, col3, onNextRound, currentR
       {/* Background Ambience Overlay with Image */}
       <div className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none z-0 opacity-60"
            // здесь задний фон
-           style={{ backgroundImage: `url('https://vadwslmqajbbmklrhnzu.supabase.co/storage/v1/object/public/Juul-D-Page/character-roster-bg.jpg')` }}>
+           style={{ backgroundImage: `url('${SUPABASE_URL}/storage/v1/object/public/Juul-D-Page/character-roster-bg.jpg')` }}>
       </div>
       {/* Reduced darkness of overlay to let image show through more */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-950/70 to-slate-950 pointer-events-none z-0"></div>

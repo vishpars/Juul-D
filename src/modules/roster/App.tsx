@@ -227,10 +227,11 @@ const RosterContent: React.FC<RosterModuleProps> = ({ isAdmin = false }) => {
   };
 
   const getSheetBackground = (faction: Faction) => {
-      if (faction === Faction.LIGHT) return 'https://vadwslmqajbbmklrhnzu.supabase.co/storage/v1/object/public/Juul-D-Page/Light_bg.jpg';
-      if (faction === Faction.DARK) return 'https://vadwslmqajbbmklrhnzu.supabase.co/storage/v1/object/public/Juul-D-Page/Dark_bg.jpg';
-      if (faction === Faction.NPC) return 'https://vadwslmqajbbmklrhnzu.supabase.co/storage/v1/object/public/Juul-D-Page/Bestiary_bg.jpg';
-      if (faction === Faction.GRAVEYARD) return 'https://vadwslmqajbbmklrhnzu.supabase.co/storage/v1/object/public/Juul-D-Page/graveyard_bg.jpg';
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://vadwslmqajbbmklrhnzu.supabase.co';
+      if (faction === Faction.LIGHT) return `${SUPABASE_URL}/storage/v1/object/public/Juul-D-Page/Light_bg.jpg`;
+      if (faction === Faction.DARK) return `${SUPABASE_URL}/storage/v1/object/public/Juul-D-Page/Dark_bg.jpg`;
+      if (faction === Faction.NPC) return `${SUPABASE_URL}/storage/v1/object/public/Juul-D-Page/Bestiary_bg.jpg`;
+      if (faction === Faction.GRAVEYARD) return `${SUPABASE_URL}/storage/v1/object/public/Juul-D-Page/graveyard_bg.jpg`;
       return null;
   };
 

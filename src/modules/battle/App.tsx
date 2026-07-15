@@ -1181,7 +1181,7 @@ const App: React.FC<BattleModuleProps> = ({ isAdmin = false }) => {
         </Modal>
 
         <div className="h-screen w-full bg-slate-950 text-slate-300 font-sans p-4 flex flex-col overflow-hidden box-border relative">
-            <div className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none z-0 opacity-60" style={{ backgroundImage: `url('https://vadwslmqajbbmklrhnzu.supabase.co/storage/v1/object/public/Juul-D-Page/battle_bg.jpg')` }}></div>
+            <div className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none z-0 opacity-60" style={{ backgroundImage: `url('${import.meta.env.VITE_SUPABASE_URL || 'https://vadwslmqajbbmklrhnzu.supabase.co'}/storage/v1/object/public/Juul-D-Page/battle_bg.jpg')` }}></div>
             <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-950/60 to-slate-950/80 pointer-events-none z-0"></div>
             <header className="mb-4 flex items-center justify-between bg-slate-900/90 backdrop-blur-md p-4 rounded-lg border border-violet-900/30 shadow-lg relative overflow-hidden group shrink-0 h-20 z-10">
                 <div className="absolute inset-0 bg-gradient-to-r from-violet-900/10 to-transparent opacity-50 pointer-events-none"></div>

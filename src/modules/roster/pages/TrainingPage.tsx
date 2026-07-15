@@ -16,7 +16,8 @@ interface TrainingPageProps {
 const DEFAULT_LIMITS_STR = "3/4/2/2/2";
 
 // Background Image (Same as Roster for consistency)
-const BG_IMAGE = "https://vadwslmqajbbmklrhnzu.supabase.co/storage/v1/object/public/Juul-D-Page/character-roster-bg.jpg";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://vadwslmqajbbmklrhnzu.supabase.co';
+const BG_IMAGE = `${SUPABASE_URL}/storage/v1/object/public/Juul-D-Page/character-roster-bg.jpg`;
 
 export const TrainingPage: React.FC<TrainingPageProps> = ({ characters, onBack }) => {
     const { isAdmin } = useAuth();

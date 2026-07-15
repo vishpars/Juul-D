@@ -142,16 +142,8 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
   const signInWithProvider = async (provider: 'google') => {
       setIsLoading(true);
       try {
-          let baseUrl = '/';
-          try {
-              // @ts-ignore
-              if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) {
-                  // @ts-ignore
-                  baseUrl = import.meta.env.BASE_URL;
-              }
-          } catch (e) {}
-          
-          const redirectUrl = window.location.origin + baseUrl;
+          // Use window.location.pathname to automatically handle subpaths like /Juul-D/
+          const redirectUrl = window.location.origin + window.location.pathname;
           
           const { error } = await supabase.auth.signInWithOAuth({
               provider: provider,

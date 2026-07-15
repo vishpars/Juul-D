@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 
-const BG_OFF = "https://vadwslmqajbbmklrhnzu.supabase.co/storage/v1/object/public/Juul-D-Page/home_bg_dimm.jpg";
-const BG_ON = "https://vadwslmqajbbmklrhnzu.supabase.co/storage/v1/object/public/Juul-D-Page/home_bg_lit.jpg";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://vadwslmqajbbmklrhnzu.supabase.co';
+
+const BG_OFF = `${SUPABASE_URL}/storage/v1/object/public/Juul-D-Page/home_bg_dimm.jpg`;
+const BG_ON = `${SUPABASE_URL}/storage/v1/object/public/Juul-D-Page/home_bg_lit.jpg`;
 
 export const BackgroundAmbience: React.FC = () => {
   const [litOpacity, setLitOpacity] = useState(0);

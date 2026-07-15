@@ -178,7 +178,8 @@ const Roster: React.FC<Props> = ({ characters, onSelect, onCreate, onOpenSetting
   };
 
   // Main Background Image
-  const rosterBg = "https://vadwslmqajbbmklrhnzu.supabase.co/storage/v1/object/public/Juul-D-Page/character-roster-bg.jpg"; 
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://vadwslmqajbbmklrhnzu.supabase.co';
+  const rosterBg = `${SUPABASE_URL}/storage/v1/object/public/Juul-D-Page/character-roster-bg.jpg`; 
 
   return (
     <div className={`relative flex flex-col w-full h-[calc(100dvh-3rem)] md:h-[100dvh] overflow-hidden bg-transparent transition-all duration-1000 ${isBloodMode ? 'grayscale-[0.2] sepia-[0.3] hue-rotate-[-30deg]' : ''}`}>

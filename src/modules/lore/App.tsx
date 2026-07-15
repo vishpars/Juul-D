@@ -10,13 +10,15 @@ import MarketPage from './pages/MarketPage';
 
 type Tab = 'wiki' | 'maps' | 'locations' | 'quests' | 'library' | 'market';
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://vadwslmqajbbmklrhnzu.supabase.co';
+
 const BACKGROUNDS: Record<Tab, string> = {
-  wiki: 'https://vadwslmqajbbmklrhnzu.supabase.co/storage/v1/object/public/Juul-D-Page/lore-states.jpg',
-  maps: 'https://vadwslmqajbbmklrhnzu.supabase.co/storage/v1/object/public/Juul-D-Page/lore-maps.jpg',
-  locations: 'https://vadwslmqajbbmklrhnzu.supabase.co/storage/v1/object/public/Juul-D-Page/lore-locations.jpg',
-  quests: 'https://vadwslmqajbbmklrhnzu.supabase.co/storage/v1/object/public/Juul-D-Page/lore-quests.jpg',
-  library: 'https://vadwslmqajbbmklrhnzu.supabase.co/storage/v1/object/public/Juul-D-Page/lore-library.jpg',
-  market: 'https://vadwslmqajbbmklrhnzu.supabase.co/storage/v1/object/public/Juul-D-Page/lore-library.jpg'
+  wiki: `${SUPABASE_URL}/storage/v1/object/public/Juul-D-Page/lore-states.jpg`,
+  maps: `${SUPABASE_URL}/storage/v1/object/public/Juul-D-Page/lore-maps.jpg`,
+  locations: `${SUPABASE_URL}/storage/v1/object/public/Juul-D-Page/lore-locations.jpg`,
+  quests: `${SUPABASE_URL}/storage/v1/object/public/Juul-D-Page/lore-quests.jpg`,
+  library: `${SUPABASE_URL}/storage/v1/object/public/Juul-D-Page/lore-library.jpg`,
+  market: `${SUPABASE_URL}/storage/v1/object/public/Juul-D-Page/lore-library.jpg`
 };
 
 interface LoreModuleProps {
@@ -101,7 +103,7 @@ const LoreModule: React.FC<LoreModuleProps> = ({ isAdmin = false }) => {
             ${isSidebarCollapsed ? 'w-0 -translate-x-full md:translate-x-0 md:w-0 md:border-r-0' : 'w-20 md:w-24 translate-x-0'}
         `}
       >
-        <div className="flex flex-col w-full space-y-1 md:space-y-2 overflow-y-auto no-scrollbar flex-1 pt-4">
+        <div className={`flex flex-col w-full space-y-1 md:space-y-2 overflow-y-auto no-scrollbar flex-1 pt-4 transition-opacity duration-300 ${isSidebarCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
           <NavButton tab="wiki" icon={BookOpen} label="Вики" />
           <NavButton tab="maps" icon={Map} label="Карты" />
           <NavButton tab="locations" icon={MapPin} label="Места" />
@@ -113,24 +115,24 @@ const LoreModule: React.FC<LoreModuleProps> = ({ isAdmin = false }) => {
         {/* Sidebar Toggle at Bottom */}
         <div className="mt-auto flex flex-col items-center gap-4 w-full pb-8 pt-4 border-t border-white/5 bg-black/20">
             <div 
-              onClick={() => setIsSidebarCollapsed(true)}
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
               className="p-2 border border-violet-500/20 rounded-full bg-slate-900 cursor-pointer hover:border-violet-500/50 transition-colors select-none group"
-              title="Свернуть меню"
+              title={isSidebarCollapsed ? "Развернуть меню" : "Свернуть меню"}
             >
                 <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full bg-violet-600 shadow-[0_0_15px_rgba(139,92,246,0.6)] group-hover:shadow-[0_0_25px_rgba(139,92,246,0.8)] transition-all ${isAdmin ? 'ring-2 ring-emerald-400' : 'animate-pulse'}`} />
             </div>
 
-            <div className="text-[10px] md:text-xs text-slate-600 font-fantasy opacity-50 flex flex-col items-center gap-1 whitespace-nowrap">
+            <div className={`text-[10px] md:text-xs text-slate-600 font-fantasy opacity-50 flex flex-col items-center gap-1 whitespace-nowrap transition-opacity duration-300 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}>
                 {isAdmin && <span className="text-emerald-500 font-bold">ADMIN</span>}
             </div>
         </div>
       </nav>
 
-      {/* Floating Toggle Button (Visible only when sidebar is collapsed) */}
+      {/* Floating Toggle Button (Visible only when sidebar is collapsed and on mobile screens where sidebar is completely off-screen) */}
       <button 
         onClick={() => setIsSidebarCollapsed(false)}
         className={`
-            absolute bottom-4 left-4 z-[60] p-2 rounded-full bg-slate-900/90 border border-violet-500/50 text-violet-400 shadow-[0_0_15px_rgba(139,92,246,0.5)] 
+            md:hidden absolute bottom-20 left-4 z-[60] p-2 rounded-full bg-slate-900/90 border border-violet-500/50 text-violet-400 shadow-[0_0_15px_rgba(139,92,246,0.5)] 
             transition-all duration-500 ease-out hover:scale-110 hover:border-violet-400 hover:text-white
             ${isSidebarCollapsed ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0 pointer-events-none'}
         `}
